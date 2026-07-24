@@ -65,7 +65,8 @@ const el = {
   wakeWord: $('wakeWord'),
   wakeWordEnabled: $('wakeWordEnabled'),
   continuousListening: $('continuousListening'),
-  btnClear: $('btnClear')
+  btnClear: $('btnClear'),
+  btnTestVoice: $('btnTestVoice')
 };
 
 // =============================================
@@ -282,49 +283,100 @@ function speakBrowser(text) {
   return new Promise((resolve) => {
     if (!S.synth) { resolve(); return; }
     S.synth.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'fr-FR';
-    u.rate = S.settings.ttsRate || 1;
-    u.pitch = 1;
 
-    // Pick best voice
-    const voices = S.synth.getVoices();
-    const preferred = voices.find(v => v.name.includes('Thomas')) ||
-                      voices.find(v => v.name.includes('Hortense')) ||
-                      voices.find(v => v.name.includes('Amélie')) ||
-                      voices.find(v => v.lang === 'fr-FR') ||
-                      voices.find(v => v.lang.startsWith('fr'));
-    if (preferred) u.voice = preferred;
+    // Split long text into chunks (speechSynthesis has limits)
+    const maxLen = 200;
+    const chunks = text.length > maxLen ? splitText(text, maxLen) : [text];
+    let idx = 0;
 
-    u.onend = resolve;
-    u.onerror = resolve;
-    S.synth.speak(u);
+    function speakNext() {
+      if (idx >= chunks.length) { resolve(); return; }
+      const u = new SpeechSynthesisUtterance(chunks[idx]);
+      u.lang = 'fr-FR';
+      u.rate = S.settings.ttsRate || 1;
+      u.pitch = 1;
+
+      // Pick best French voice
+      const voices = S.synth.getVoices();
+      const userVoice = S.settings.ttsVoice;
+      let voice = null;
+
+      if (userVoice && userVoice !== 'auto') {
+        const [lang, name] = userVoice.split('|');
+        voice = voices.find(v => v.name === name) || voices.find(v => v.lang === lang);
+      }
+      if (!voice) {
+        // Priority order for natural French voices
+        voice = voices.find(v => v.name.includes('Thomas') && v.lang.startsWith('fr'))
+             || voices.find(v => v.name.includes('Amélie'))
+             || voices.find(v => v.name.includes('Hortense'))
+             || voices.find(v => v.name.includes('Denise'))
+             || voices.find(v => v.name.includes('Eloise'))
+             || voices.find(v => v.lang === 'fr-FR' && v.localService === false)
+             || voices.find(v => v.lang === 'fr-FR')
+             || voices.find(v => v.lang.startsWith('fr'));
+      }
+      if (voice) u.voice = voice;
+
+      u.onend = () => { idx++; speakNext(); };
+      u.onerror = () => { idx++; speakNext(); };
+      S.synth.speak(u);
+    }
+    speakNext();
   });
+}
+
+function splitText(text, maxLen) {
+  const chunks = [];
+  const sentences = text.replace(/\n/g, ' ').split(/(?<=[.!?])\s+/);
+  let current = '';
+  for (const s of sentences) {
+    if ((current + ' ' + s).length > maxLen && current) {
+      chunks.push(current.trim());
+      current = s;
+    } else {
+      current = current ? current + ' ' + s : s;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length ? chunks : [text.substring(0, maxLen)];
 }
 
 async function speakElevenLabs(text) {
   const key = S.settings.elevenKey;
   const voiceId = S.settings.elevenVoice || CFG.DEFAULTS.elevenVoice;
-  if (!key) throw new Error('No ElevenLabs key');
+  if (!key) throw new Error('Clé API ElevenLabs manquante');
 
-  const resp = await fetch(`${CFG.ELEVEN_URL}/${voiceId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'xi-api-key': key
-    },
-    body: JSON.stringify({
-      text: text,
-      model_id: 'eleven_multilingual_v2',
-      voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.4 }
-    })
-  });
+  // Split long text (ElevenLabs limit ~5000 chars)
+  const chunks = text.length > 4000 ? splitText(text, 4000) : [text];
 
-  if (!resp.ok) throw new Error(`ElevenLabs ${resp.status}`);
+  for (const chunk of chunks) {
+    const resp = await fetch(`${CFG.ELEVEN_URL}/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': key
+      },
+      body: JSON.stringify({
+        text: chunk,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true }
+      })
+    });
 
-  const blob = await resp.blob();
-  const url = URL.createObjectURL(blob);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail?.message || `ElevenLabs erreur ${resp.status}`);
+    }
+
+    const blob = await resp.blob();
+    await playAudioBlob(blob);
+  }
+}
+
+function playAudioBlob(blob) {
   return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
     audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
@@ -495,6 +547,28 @@ function bindEvents() {
   // Settings live changes
   el.ttsEngine.addEventListener('change', () => toggleElevenLabs(el.ttsEngine.value === 'elevenlabs'));
   el.ttsRate.addEventListener('input', () => { el.rateVal.textContent = parseFloat(el.ttsRate.value).toFixed(1) + 'x'; });
+
+  // Test voice
+  el.btnTestVoice.addEventListener('click', async () => {
+    el.btnTestVoice.classList.add('loading');
+    el.btnTestVoice.textContent = 'Écoute...';
+    // Temporarily apply current settings
+    const testSettings = {
+      ttsEngine: el.ttsEngine.value,
+      ttsVoice: el.ttsVoice.value,
+      ttsRate: parseFloat(el.ttsRate.value),
+      elevenKey: el.elevenKey.value,
+      elevenVoice: el.elevenVoice.value
+    };
+    const prev = { ...S.settings };
+    Object.assign(S.settings, testSettings);
+    try {
+      await speak("Bonjour ! Je suis JARVIS, votre assistant personnel. Comment puis-je vous aider aujourd'hui ?");
+    } catch {}
+    Object.assign(S.settings, prev);
+    el.btnTestVoice.classList.remove('loading');
+    el.btnTestVoice.textContent = 'Tester la voix';
+  });
 
   // Clear data
   el.btnClear.addEventListener('click', () => {

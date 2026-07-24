@@ -442,6 +442,27 @@ body {
 }
 .btn-danger:hover { background: var(--danger); color: #fff; }
 
+.btn-test {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-test:hover { background: var(--accent); color: #fff; }
+.btn-test:active { transform: scale(0.97); }
+.btn-test.loading { opacity: 0.5; pointer-events: none; }
+
+.field-hint a { color: var(--accent); text-decoration: none; }
+.field-hint a:hover { text-decoration: underline; }
+
 /* === TOAST === */
 .toasts {
   position: fixed;
