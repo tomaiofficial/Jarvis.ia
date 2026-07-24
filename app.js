@@ -1,598 +1,544 @@
 /**
- * JARVIS PWA — Assistant Vocal IA
+ * JARVIS PWA v4 — Assistant Téléphone Complet
+ * Actions: Appels, SMS, Email, Rappels, Notes, Météo, Minuteries, Calculs, Contacts, Maps...
  */
 
-// =============================================
-// CONFIG
-// =============================================
 const CFG = {
-  KEYS: { SETTINGS: 'j_settings', HISTORY: 'j_history', API_KEY: 'j_apikey', ELEVEN_KEY: 'j_eleven' },
-  DEFAULTS: {
-    apiProvider: 'gemini',
-    ttsEngine: 'browser',
-    ttsVoice: 'auto',
-    ttsRate: 1,
-    elevenVoice: 'EXAVITQu4vr4xnSDxMaL',
-    userName: 'Tom',
-    wakeWord: 'JARVIS',
-    wakeWordEnabled: true,
-    continuousListening: false
-  },
-  GEMINI_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-  GROQ_URL: 'https://api.groq.com/openai/v1/chat/completions',
-  ELEVEN_URL: 'https://api.elevenlabs.io/v1/text-to-speech'
+  KEYS: { S: 'j4_s', H: 'j4_h', AK: 'j4_ak', EK: 'j4_ek', R: 'j4_r', N: 'j4_n' },
+  DEF: { apiProvider:'gemini', ttsEngine:'browser', ttsRate:1, elevenVoice:'EXAVITQu4vr4xnSDxMaL', userName:'Tom', continuousListening:false },
+  GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  GROQ: 'https://api.groq.com/openai/v1/chat/completions',
+  ELEVEN: 'https://api.elevenlabs.io/v1/text-to-speech',
+  WEATHER: 'https://wttr.in/{city}?format=j1&lang=fr'
 };
 
-const S = {
-  settings: {},
-  history: [],
-  listening: false,
-  speaking: false,
-  recognition: null,
-  synth: speechSynthesis
-};
+const ST = { s:{}, h:[], reminders:[], notes:[], listening:false, speaking:false, rec:null, synth:speechSynthesis };
 
-// =============================================
 // DOM
-// =============================================
-const $ = id => document.getElementById(id);
-const el = {
-  orb: $('orb'),
-  statusText: $('statusText'),
-  messages: $('messages'),
-  chat: $('chat'),
-  typing: $('typing'),
-  btnMic: $('btnMic'),
-  textInput: $('textInput'),
-  btnSend: $('btnSend'),
-  inputHint: $('inputHint'),
-  btnSettings: $('btnSettings'),
-  overlay: $('overlay'),
-  modal: $('modal'),
-  btnClose: $('btnClose'),
-  toasts: $('toasts'),
-  // Settings inputs
-  apiProvider: $('apiProvider'),
-  apiKey: $('apiKey'),
-  ttsEngine: $('ttsEngine'),
-  ttsVoice: $('ttsVoice'),
-  ttsRate: $('ttsRate'),
-  rateVal: $('rateVal'),
-  elevenKey: $('elevenKey'),
-  elevenVoice: $('elevenVoice'),
-  elevenLabsFields: $('elevenLabsFields'),
-  userName: $('userName'),
-  wakeWord: $('wakeWord'),
-  wakeWordEnabled: $('wakeWordEnabled'),
-  continuousListening: $('continuousListening'),
-  btnClear: $('btnClear'),
-  btnTestVoice: $('btnTestVoice')
-};
+const $=id=>document.getElementById(id);
+const el={};
+function cacheDom(){
+  ['orb','statusText','messages','chat','typing','btnMic','textInput','btnSend',
+   'btnSettings','overlay','modal','btnClose','toasts','apiProvider','apiKey',
+   'ttsEngine','ttsVoice','ttsRate','rateVal','elevenKey','elevenVoice','elevenLabsFields',
+   'userName','continuousListening','btnClear','btnTestVoice','quickActions',
+   'btnReminders','reminderBadge','remindersOverlay','remindersModal','btnCloseReminders','remindersList'
+  ].forEach(id=>{ el[id]=$(id); });
+}
 
 // =============================================
 // INIT
 // =============================================
-document.addEventListener('DOMContentLoaded', async () => {
-  loadSettings();
-  loadHistory();
-  renderHistory();
-  bindEvents();
-  initSpeech();
-  populateVoices();
-  toast('JARVIS prêt', 'success');
+document.addEventListener('DOMContentLoaded',()=>{
+  cacheDom(); loadAll(); bindAll(); initSpeech(); populateVoices();
+  requestNotificationPermission();
+  toast('JARVIS prêt — tapez un message','success');
 });
 
 // =============================================
-// SETTINGS
+// PERSISTENCE
 // =============================================
-function loadSettings() {
-  try {
-    const stored = localStorage.getItem(CFG.KEYS.SETTINGS);
-    S.settings = stored ? { ...CFG.DEFAULTS, ...JSON.parse(stored) } : { ...CFG.DEFAULTS };
-    const ak = localStorage.getItem(CFG.KEYS.API_KEY);
-    if (ak) S.settings.apiKey = ak;
-    const ek = localStorage.getItem(CFG.KEYS.ELEVEN_KEY);
-    if (ek) S.settings.elevenKey = ek;
-  } catch { S.settings = { ...CFG.DEFAULTS }; }
-  syncSettingsUI();
+function loadAll(){
+  try{ ST.s={...CFG.DEF,...JSON.parse(localStorage.getItem(CFG.KEYS.S))}; }catch{ ST.s={...CFG.DEF}; }
+  const ak=localStorage.getItem(CFG.KEYS.AK); if(ak) ST.s.apiKey=ak;
+  const ek=localStorage.getItem(CFG.KEYS.EK); if(ek) ST.s.elevenKey=ek;
+  try{ ST.h=JSON.parse(localStorage.getItem(CFG.KEYS.H))||[]; }catch{ ST.h=[]; }
+  try{ ST.reminders=JSON.parse(localStorage.getItem(CFG.KEYS.R))||[]; }catch{ ST.reminders=[]; }
+  try{ ST.notes=JSON.parse(localStorage.getItem(CFG.KEYS.N))||[]; }catch{ ST.notes=[]; }
+  syncUI(); renderReminders();
 }
+function saveS(){ localStorage.setItem(CFG.KEYS.S,JSON.stringify(ST.s)); }
+function saveH(){ localStorage.setItem(CFG.KEYS.H,JSON.stringify(ST.h.slice(-100))); }
+function saveR(){ localStorage.setItem(CFG.KEYS.R,JSON.stringify(ST.reminders)); }
+function saveN(){ localStorage.setItem(CFG.KEYS.N,JSON.stringify(ST.notes)); }
 
-function syncSettingsUI() {
-  const s = S.settings;
-  el.apiProvider.value = s.apiProvider || 'gemini';
-  el.apiKey.value = s.apiKey || '';
-  el.ttsEngine.value = s.ttsEngine || 'browser';
-  el.ttsVoice.value = s.ttsVoice || 'auto';
-  el.ttsRate.value = s.ttsRate || 1;
-  el.rateVal.textContent = (s.ttsRate || 1).toFixed(1) + 'x';
-  el.elevenKey.value = s.elevenKey || '';
-  el.elevenVoice.value = s.elevenVoice || CFG.DEFAULTS.elevenVoice;
-  el.userName.value = s.userName || 'Tom';
-  el.wakeWord.value = s.wakeWord || 'JARVIS';
-  el.wakeWordEnabled.checked = s.wakeWordEnabled !== false;
-  el.continuousListening.checked = s.continuousListening === true;
-  toggleElevenLabs(s.ttsEngine === 'elevenlabs');
-}
-
-function saveSettings() {
-  const s = {
-    apiProvider: el.apiProvider.value,
-    ttsEngine: el.ttsEngine.value,
-    ttsVoice: el.ttsVoice.value,
-    ttsRate: parseFloat(el.ttsRate.value),
-    elevenVoice: el.elevenVoice.value,
-    userName: el.userName.value || 'Tom',
-    wakeWord: el.wakeWord.value || 'JARVIS',
-    wakeWordEnabled: el.wakeWordEnabled.checked,
-    continuousListening: el.continuousListening.checked
-  };
-  if (el.apiKey.value) { localStorage.setItem(CFG.KEYS.API_KEY, el.apiKey.value); s.apiKey = el.apiKey.value; }
-  if (el.elevenKey.value) { localStorage.setItem(CFG.KEYS.ELEVEN_KEY, el.elevenKey.value); s.elevenKey = el.elevenKey.value; }
-  S.settings = { ...S.settings, ...s };
-  localStorage.setItem(CFG.KEYS.SETTINGS, JSON.stringify(S.settings));
-  toggleElevenLabs(s.ttsEngine === 'elevenlabs');
-  toast('Paramètres sauvegardés', 'success');
-}
-
-function toggleElevenLabs(show) {
-  el.elevenLabsFields.classList.toggle('hidden', !show);
+function addH(role,content){
+  const m={id:Date.now()+Math.random(),role,content,ts:Date.now()};
+  ST.h.push(m); saveH(); return m;
 }
 
 // =============================================
-// HISTORY
+// UI SYNC
 // =============================================
-function loadHistory() {
-  try { S.history = JSON.parse(localStorage.getItem(CFG.KEYS.HISTORY)) || []; } catch { S.history = []; }
+function syncUI(){
+  const s=ST.s;
+  el.apiProvider.value=s.apiProvider||'gemini';
+  el.apiKey.value=s.apiKey||'';
+  el.ttsEngine.value=s.ttsEngine||'browser';
+  el.ttsRate.value=s.ttsRate||1;
+  el.rateVal.textContent=(s.ttsRate||1).toFixed(1)+'x';
+  el.elevenKey.value=s.elevenKey||'';
+  el.elevenVoice.value=s.elevenVoice||CFG.DEF.elevenVoice;
+  el.userName.value=s.userName||'Tom';
+  el.continuousListening.checked=!!s.continuousListening;
+  toggleEleven(s.ttsEngine==='elevenlabs');
+  updateBadge();
 }
-function saveHistory() { localStorage.setItem(CFG.KEYS.HISTORY, JSON.stringify(S.history.slice(-100))); }
-function addHistory(role, content) {
-  const msg = { id: Date.now() + Math.random(), role, content, ts: Date.now() };
-  S.history.push(msg);
-  saveHistory();
-  return msg;
-}
-
-function renderHistory() {
-  el.messages.innerHTML = '';
-  S.history.forEach(m => appendMsg(m.role, m.content));
-  scrollBottom();
-}
+function toggleEleven(on){ el.elevenLabsFields.classList.toggle('hidden',!on); }
 
 // =============================================
 // CHAT UI
 // =============================================
-function appendMsg(role, content) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-
-  const avatarClass = role === 'user' ? 'user-avatar' : 'jarvis-avatar';
-  const avatarSvg = role === 'user'
-    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-
-  div.innerHTML = `
-    <div class="msg-avatar ${avatarClass}">${avatarSvg}</div>
-    <div class="msg-body"><div class="msg-text">${formatText(content)}</div></div>
-  `;
-
-  el.messages.appendChild(div);
+function appendMsg(role,content,actionCard){
+  const d=document.createElement('div');
+  d.className=`msg ${role}`;
+  const avCls=role==='user'?'user-av':'jarvis-av';
+  const avSvg=role==='user'
+    ?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    :'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+  let html=`<div class="msg-avatar ${avCls}">${avSvg}</div><div class="msg-body"><div class="msg-text">${fmt(content)}</div>`;
+  if(actionCard) html+=actionCard;
+  html+='</div>';
+  d.innerHTML=html;
+  el.messages.appendChild(d);
   scrollBottom();
-  return div;
+  return d;
 }
 
-function formatText(text) {
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br>');
+function fmt(t){
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/\n/g,'<br>');
 }
 
-function scrollBottom() { el.chat.scrollTop = el.chat.scrollHeight; }
-function showTyping(on) { el.typing.classList.toggle('hidden', !on); if(on) scrollBottom(); }
+function scrollBottom(){ el.chat.scrollTop=el.chat.scrollHeight; }
+function showTyping(on){ el.typing.classList.toggle('hidden',!on); if(on)scrollBottom(); }
+function setOrb(s){ el.orb.className='orb'; if(s)el.orb.classList.add(s); }
+function setStatus(t,c){ el.statusText.textContent=t; el.statusText.className='status'; if(c)el.statusText.classList.add(c); }
+function toast(msg,type='info'){ const t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; el.toasts.appendChild(t); setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},3000); }
+
+// =============================================
+// REMINDERS & NOTES
+// =============================================
+function setReminder(text, minutes){
+  const r={id:Date.now(),text,fireAt:Date.now()+minutes*60*1000,done:false};
+  ST.reminders.push(r); saveR(); updateBadge();
+  setTimeout(()=>fireReminder(r), minutes*60*1000);
+  return r;
+}
+function fireReminder(r){
+  r.done=true; saveR(); updateBadge();
+  showNotification('🔔 Rappel JARVIS', r.text);
+  toast('Rappel: '+r.text,'warn');
+}
+function deleteReminder(id){ ST.reminders=ST.reminders.filter(r=>r.id!==id); saveR(); updateBadge(); renderReminders(); }
+function addNote(text){ const n={id:Date.now(),text,ts:Date.now()}; ST.notes.push(n); saveN(); return n; }
+function deleteNote(id){ ST.notes=ST.notes.filter(n=>n.id!==id); saveN(); renderReminders(); }
+
+function updateBadge(){
+  const active=ST.reminders.filter(r=>!r.done).length;
+  el.reminderBadge.textContent=active;
+  el.reminderBadge.classList.toggle('hidden',active===0);
+}
+function renderReminders(){
+  const items=[...ST.reminders.filter(r=>!r.done).map(r=>({...r,type:'reminder'})),...ST.notes.map(n=>({...n,type:'note'}))];
+  items.sort((a,b)=>(b.ts||b.fireAt)-(a.ts||a.fireAt));
+  if(items.length===0){ el.remindersList.innerHTML='<p class="empty-state">Aucun rappel ou note.</p>'; return; }
+  el.remindersList.innerHTML=items.map(it=>{
+    if(it.type==='reminder'){
+      const d=new Date(it.fireAt);
+      const timeStr=d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="reminder-item"><div class="ri-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg></div><div class="ri-text">${esc(it.text)}<div class="ri-time">${timeStr}</div></div><button class="ri-del" onclick="deleteReminder(${it.id})">✕</button></div>`;
+    } else {
+      const d=new Date(it.ts);
+      return `<div class="reminder-item"><div class="ri-icon note-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="ri-text">${esc(it.text)}<div class="ri-time">${d.toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div><button class="ri-del" onclick="deleteNote(${it.id})">✕</button></div>`;
+    }
+  }).join('');
+}
+function esc(t){ const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+// =============================================
+// NOTIFICATIONS
+// =============================================
+function requestNotificationPermission(){
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+function showNotification(title,body){
+  if('Notification' in window && Notification.permission==='granted'){
+    new Notification(title,{body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',vibrate:[200,100,200]});
+  }
+}
 
 // =============================================
 // SPEECH RECOGNITION
 // =============================================
-function initSpeech() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    el.btnMic.disabled = true;
-    el.inputHint.textContent = 'Reconnaissance vocale non supportée';
-    return;
-  }
-  S.recognition = new SR();
-  S.recognition.lang = 'fr-FR';
-  S.recognition.continuous = false;
-  S.recognition.interimResults = true;
-  S.recognition.maxAlternatives = 1;
-
-  S.recognition.onstart = () => {
-    S.listening = true;
-    setOrbState('listening');
-    setStatus("J'écoute...");
-    el.btnMic.classList.add('listening');
-    el.btnMic.querySelector('.ic-mic').classList.add('hidden');
-    el.btnMic.querySelector('.ic-wave').classList.remove('hidden');
-  };
-
-  S.recognition.onresult = (ev) => {
-    let final = '', interim = '';
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      const t = ev.results[i][0].transcript;
-      if (ev.results[i].isFinal) final += t; else interim += t;
-    }
-    if (interim) { el.textInput.value = interim; }
-    if (final) { el.textInput.value = ''; handleInput(final.trim()); }
-  };
-
-  S.recognition.onerror = (ev) => {
-    if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
-      toast('Erreur microphone: ' + ev.error, 'error');
-    }
-  };
-
-  S.recognition.onend = () => {
-    S.listening = false;
-    el.btnMic.classList.remove('listening');
-    el.btnMic.querySelector('.ic-mic').classList.remove('hidden');
-    el.btnMic.querySelector('.ic-wave').classList.add('hidden');
-    if (!S.speaking) { setOrbState(''); setStatus('En veille'); }
-    if (S.settings.continuousListening && !S.speaking) setTimeout(() => startListening(), 800);
-  };
+function initSpeech(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ el.btnMic.onclick=()=>toast('Micro non supporté','error'); return; }
+  ST.rec=new SR();
+  ST.rec.lang='fr-FR'; ST.rec.continuous=false; ST.rec.interimResults=true; ST.rec.maxAlternatives=1;
+  ST.rec.onstart=()=>{ ST.listening=true; setOrb('listening'); setStatus("J'écoute..."); el.btnMic.classList.add('listening'); };
+  ST.rec.onresult=(ev)=>{ let f='',i2=''; for(let i=ev.resultIndex;i<ev.results.length;i++){const t=ev.results[i][0].transcript;if(ev.results[i].isFinal)f+=t;else i2+=t;} if(i2)el.textInput.value=i2; if(f){el.textInput.value='';handleInput(f.trim());}};
+  ST.rec.onerror=(ev)=>{ if(ev.error!=='no-speech'&&ev.error!=='aborted')toast('Micro: '+ev.error,'error'); };
+  ST.rec.onend=()=>{ ST.listening=false; el.btnMic.classList.remove('listening'); if(!ST.speaking){setOrb('');setStatus('Prêt');} if(ST.s.continuousListening&&!ST.speaking)setTimeout(()=>startListening(),800); };
 }
-
-function startListening() {
-  if (!S.recognition || S.listening || S.speaking) return;
-  try { S.recognition.start(); } catch {}
-}
-function stopListening() { if (S.recognition && S.listening) S.recognition.stop(); }
+function startListening(){ if(!ST.rec||ST.listening||ST.speaking)return; try{ST.rec.start();}catch{} }
+function stopListening(){ if(ST.rec&&ST.listening)ST.rec.stop(); }
 
 // =============================================
-// TTS — Browser + ElevenLabs
+// TTS
 // =============================================
-async function speak(text) {
-  // Clean text for speech (remove markdown)
-  const clean = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '').replace(/<[^>]+>/g, '');
-  if (!clean.trim()) return;
-
-  S.speaking = true;
-  setOrbState('speaking');
-  setStatus('JARVIS parle...');
-
-  try {
-    if (S.settings.ttsEngine === 'elevenlabs' && S.settings.elevenKey) {
-      await speakElevenLabs(clean);
-    } else {
-      await speakBrowser(clean);
-    }
-  } catch (e) {
-    console.warn('TTS error:', e);
-    // Fallback to browser if ElevenLabs fails
-    if (S.settings.ttsEngine === 'elevenlabs') {
-      try { await speakBrowser(clean); } catch {}
-    }
-  }
-
-  S.speaking = false;
-  if (!S.listening) { setOrbState(''); setStatus('En veille'); }
+async function speak(text){
+  const clean=text.replace(/\*\*/g,'').replace(/\*/g,'').replace(/`/g,'').replace(/<[^>]+>/g,'');
+  if(!clean.trim())return;
+  ST.speaking=true; setOrb('speaking'); setStatus('Parle...');
+  try{
+    if(ST.s.ttsEngine==='elevenlabs'&&ST.s.elevenKey) await ttsEleven(clean);
+    else await ttsBrowser(clean);
+  }catch(e){ console.warn('TTS:',e); if(ST.s.ttsEngine==='elevenlabs'){try{await ttsBrowser(clean);}catch{}} }
+  ST.speaking=false; if(!ST.listening){setOrb('');setStatus('Prêt');}
 }
-
-function speakBrowser(text) {
-  return new Promise((resolve) => {
-    if (!S.synth) { resolve(); return; }
-    S.synth.cancel();
-
-    // Split long text into chunks (speechSynthesis has limits)
-    const maxLen = 200;
-    const chunks = text.length > maxLen ? splitText(text, maxLen) : [text];
-    let idx = 0;
-
-    function speakNext() {
-      if (idx >= chunks.length) { resolve(); return; }
-      const u = new SpeechSynthesisUtterance(chunks[idx]);
-      u.lang = 'fr-FR';
-      u.rate = S.settings.ttsRate || 1;
-      u.pitch = 1;
-
-      // Pick best French voice
-      const voices = S.synth.getVoices();
-      const userVoice = S.settings.ttsVoice;
-      let voice = null;
-
-      if (userVoice && userVoice !== 'auto') {
-        const [lang, name] = userVoice.split('|');
-        voice = voices.find(v => v.name === name) || voices.find(v => v.lang === lang);
-      }
-      if (!voice) {
-        // Priority order for natural French voices
-        voice = voices.find(v => v.name.includes('Thomas') && v.lang.startsWith('fr'))
-             || voices.find(v => v.name.includes('Amélie'))
-             || voices.find(v => v.name.includes('Hortense'))
-             || voices.find(v => v.name.includes('Denise'))
-             || voices.find(v => v.name.includes('Eloise'))
-             || voices.find(v => v.lang === 'fr-FR' && v.localService === false)
-             || voices.find(v => v.lang === 'fr-FR')
-             || voices.find(v => v.lang.startsWith('fr'));
-      }
-      if (voice) u.voice = voice;
-
-      u.onend = () => { idx++; speakNext(); };
-      u.onerror = () => { idx++; speakNext(); };
-      S.synth.speak(u);
+function ttsBrowser(text){
+  return new Promise(resolve=>{
+    if(!ST.synth){resolve();return;}
+    ST.synth.cancel();
+    const chunks=text.length>200?splitText(text,200):[text];
+    let idx=0;
+    function next(){
+      if(idx>=chunks.length){resolve();return;}
+      const u=new SpeechSynthesisUtterance(chunks[idx]);
+      u.lang='fr-FR'; u.rate=ST.s.ttsRate||1; u.pitch=1;
+      const voices=ST.synth.getVoices();
+      const v=voices.find(v2=>v2.name.includes('Thomas')&&v2.lang.startsWith('fr'))
+           ||voices.find(v2=>v2.name.includes('Amélie'))
+           ||voices.find(v2=>v2.name.includes('Hortense'))
+           ||voices.find(v2=>v2.name.includes('Denise'))
+           ||voices.find(v2=>v2.lang==='fr-FR')
+           ||voices.find(v2=>v2.lang.startsWith('fr'));
+      if(v)u.voice=v;
+      u.onend=()=>{idx++;next();}; u.onerror=()=>{idx++;next();};
+      ST.synth.speak(u);
     }
-    speakNext();
+    next();
   });
 }
-
-function splitText(text, maxLen) {
-  const chunks = [];
-  const sentences = text.replace(/\n/g, ' ').split(/(?<=[.!?])\s+/);
-  let current = '';
-  for (const s of sentences) {
-    if ((current + ' ' + s).length > maxLen && current) {
-      chunks.push(current.trim());
-      current = s;
-    } else {
-      current = current ? current + ' ' + s : s;
-    }
-  }
-  if (current.trim()) chunks.push(current.trim());
-  return chunks.length ? chunks : [text.substring(0, maxLen)];
-}
-
-async function speakElevenLabs(text) {
-  const key = S.settings.elevenKey;
-  const voiceId = S.settings.elevenVoice || CFG.DEFAULTS.elevenVoice;
-  if (!key) throw new Error('Clé API ElevenLabs manquante');
-
-  // Split long text (ElevenLabs limit ~5000 chars)
-  const chunks = text.length > 4000 ? splitText(text, 4000) : [text];
-
-  for (const chunk of chunks) {
-    const resp = await fetch(`${CFG.ELEVEN_URL}/${voiceId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': key
-      },
-      body: JSON.stringify({
-        text: chunk,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true }
-      })
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.detail?.message || `ElevenLabs erreur ${resp.status}`);
-    }
-
-    const blob = await resp.blob();
-    await playAudioBlob(blob);
+function splitText(t,m){const c=[];const s=t.replace(/\n/g,' ').split(/(?<=[.!?])\s+/);let cur='';for(const p of s){if((cur+' '+p).length>m&&cur){c.push(cur.trim());cur=p;}else{cur=cur?cur+' '+p:p;}}if(cur.trim())c.push(cur.trim());return c.length?c:[t.substring(0,m)];}
+async function ttsEleven(text){
+  const key=ST.s.elevenKey; const vid=ST.s.elevenVoice||CFG.DEF.elevenVoice;
+  if(!key)throw new Error('Clé ElevenLabs manquante');
+  const chunks=text.length>4000?splitText(text,4000):[text];
+  for(const chunk of chunks){
+    const r=await fetch(`${CFG.ELEVEN}/${vid}`,{method:'POST',headers:{'Content-Type':'application/json','xi-api-key':key},body:JSON.stringify({text:chunk,model_id:'eleven_multilingual_v2',voice_settings:{stability:.5,similarity_boost:.75,style:.3,use_speaker_boost:true}})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail?.message||`ElevenLabs ${r.status}`);}
+    const blob=await r.blob();
+    await new Promise((res,rej)=>{const u=URL.createObjectURL(blob);const a=new Audio(u);a.onend=()=>{URL.revokeObjectURL(u);res();};a.onerror=e=>{URL.revokeObjectURL(u);rej(e);};a.play().catch(rej);});
   }
 }
-
-function playAudioBlob(blob) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
-    audio.play().catch(reject);
-  });
-}
-
-// =============================================
-// VOICES
-// =============================================
-function populateVoices() {
-  if (!S.synth) return;
-  const load = () => {
-    const voices = S.synth.getVoices();
-    const fr = voices.filter(v => v.lang.startsWith('fr'));
-    el.ttsVoice.innerHTML = '<option value="auto">Automatique</option>';
-    fr.forEach(v => {
-      const o = document.createElement('option');
-      o.value = v.lang + '|' + v.name;
-      o.textContent = `${v.name} (${v.lang})`;
-      el.ttsVoice.appendChild(o);
-    });
-    // Add all voices as fallback
-    if (fr.length < 3) {
-      voices.slice(0, 10).forEach(v => {
-        const o = document.createElement('option');
-        o.value = v.lang + '|' + v.name;
-        o.textContent = `${v.name} (${v.lang})`;
-        el.ttsVoice.appendChild(o);
-      });
-    }
-    if (S.settings.ttsVoice) el.ttsVoice.value = S.settings.ttsVoice;
-  };
-  S.synth.onvoiceschanged = load;
-  load();
+function populateVoices(){
+  if(!ST.synth)return;
+  const load=()=>{ST.synth.getVoices();};
+  ST.synth.onvoiceschanged=load; load();
 }
 
 // =============================================
 // AI API
 // =============================================
-async function getAIResponse(userInput) {
-  const provider = S.settings.apiProvider || 'gemini';
-  const apiKey = S.settings.apiKey || localStorage.getItem(CFG.KEYS.API_KEY);
-  if (!apiKey) throw new Error('Clé API manquante. Ouvrez les paramètres pour la configurer.');
+const ACTION_PROMPT=`Tu es JARVIS, l'assistant personnel de {name}. Tu réponds en français, concis et utile.
 
-  const systemMsg = `Tu es JARVIS, un assistant vocal IA personnel pour ${S.settings.userName || 'Tom'}. Tu réponds en français, de façon concise et utile (2-3 phrases max sauf si on te demande plus). Tu es intelligent, amical et efficace.`;
+CAPACITÉS — Tu peux exécuter ces actions en incluant une balise [ACTION:...] dans ta réponse :
+- Appel: [ACTION:call:NUMERO:NOM] — ex: [ACTION:call:0612345678:Maman]
+- SMS: [ACTION:sms:NUMERO:MESSAGE] — ex: [ACTION:sms:0612345678:Je suis en retard]
+- Email: [ACTION:email:ADRESSE:OBJET] — ex: [ACTION:email:tom@email.com:Bonjour]
+- Rappel: [ACTION:reminder:MINUTES:TEXTE] — ex: [ACTION:reminder:30:Prendre médocs]
+- Minuterie: [ACTION:timer:MINUTES] — ex: [ACTION:timer:10]
+- Note: [ACTION:note:TEXTE] — ex: [ACTION:note:Acheter du lait]
+- Météo: [ACTION:weather:VILLE] — ex: [ACTION:weather:Paris]
+- Carte: [ACTION:map:RECHERCHE] — ex: [ACTION:map:Pizza paris]
+- Calcul: [ACTION:calc:EXPRESSION] — ex: [ACTION:calc:15*3+7]
 
-  if (provider === 'groq') {
-    const messages = [
-      { role: 'system', content: systemMsg },
-      ...S.history.slice(-8).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
-      { role: 'user', content: userInput }
-    ];
-    const r = await fetch(CFG.GROQ_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 1024 })
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Erreur ${r.status}`); }
-    const d = await r.json();
-    return d.choices?.[0]?.message?.content || 'Pas de réponse.';
+Tu peux combiner texte + action. Réponds toujours d'abord en langage naturel, puis l'action.
+Si l'utilisateur demande un rappel, calcule le nombre de minutes.
+Si l'utilisateur veut appeler/sms quelqu'un que tu ne connais pas, demande le numéro.`;
+
+async function getAI(input){
+  const prov=ST.s.apiProvider||'gemini';
+  const key=ST.s.apiKey||localStorage.getItem(CFG.KEYS.AK);
+  if(!key)throw new Error('Clé API manquante — ouvrez les paramètres ⚙️');
+  const sys=ACTION_PROMPT.replace('{name}',ST.s.userName||'Tom');
+
+  if(prov==='groq'){
+    const msgs=[{role:'system',content:sys},...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content})),{role:'user',content:input}];
+    const r=await fetch(CFG.GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:msgs,temperature:.7,max_tokens:1024})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Erreur ${r.status}`);}
+    const d=await r.json(); return d.choices?.[0]?.message?.content||'Pas de réponse.';
   } else {
-    const contents = [
-      ...S.history.slice(-8).map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      })),
-      { role: 'user', parts: [{ text: systemMsg + '\n\n' + userInput }] }
-    ];
-    const r = await fetch(`${CFG.GEMINI_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } })
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Erreur ${r.status}`); }
-    const d = await r.json();
-    return d.candidates?.[0]?.content?.parts?.[0]?.text || 'Pas de réponse.';
+    const contents=[...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),{role:'user',parts:[{text:sys+'\n\n'+input}]}];
+    const r=await fetch(`${CFG.GEMINI}?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:.7,maxOutputTokens:1024}})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Erreur ${r.status}`);}
+    const d=await r.json(); return d.candidates?.[0]?.content?.parts?.[0]?.text||'Pas de réponse.';
+  }
+}
+
+// =============================================
+// ACTION EXECUTOR
+// =============================================
+function parseAndExec(text){
+  const actionRegex=/\[ACTION:(\w+):([^\]]*)\]/g;
+  let match; let cleanText=text;
+  const actions=[];
+
+  while((match=actionRegex.exec(text))!==null){
+    const type=match[1];
+    const parts=match[2].split(':');
+    actions.push({type,parts});
+    cleanText=cleanText.replace(match[0],'').trim();
+  }
+
+  // Execute actions
+  for(const act of actions){
+    execAction(act);
+  }
+
+  return {text:cleanText, actions};
+}
+
+function execAction(act){
+  switch(act.type){
+    case 'call': {
+      const num=act.parts[0]||'';
+      const name=act.parts[1]||num;
+      if(num){
+        const card=makeActionCard('call',`Appeler ${name}`,num,`tel:${num}`);
+        appendMsg('assistant','',card);
+        // Also open directly
+        window.location.href=`tel:${num}`;
+      }
+      break;
+    }
+    case 'sms': {
+      const num=act.parts[0]||'';
+      const msg=act.parts.slice(1).join(':')||'';
+      if(num){
+        const card=makeActionCard('sms',`SMS à ${num}`,msg,`sms:${num}&body=${encodeURIComponent(msg)}`);
+        appendMsg('assistant','',card);
+        window.location.href=`sms:${num}&body=${encodeURIComponent(msg)}`;
+      }
+      break;
+    }
+    case 'email': {
+      const addr=act.parts[0]||'';
+      const subj=act.parts.slice(1).join(':')||'';
+      if(addr){
+        const card=makeActionCard('email',`Email à ${addr}`,subj,`mailto:${addr}?subject=${encodeURIComponent(subj)}`);
+        appendMsg('assistant','',card);
+        window.location.href=`mailto:${addr}?subject=${encodeURIComponent(subj)}`;
+      }
+      break;
+    }
+    case 'reminder': {
+      const mins=parseInt(act.parts[0])||5;
+      const text=act.parts.slice(1).join(':')||'Rappel';
+      const r=setReminder(text,mins);
+      const d=new Date(r.fireAt);
+      const timeStr=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      const card=makeActionCard('reminder',`Rappel dans ${mins} min`,`${timeStr} — ${text}`);
+      appendMsg('assistant','',card);
+      showNotification('⏰ Rappel programmé',`Dans ${mins} min: ${text}`);
+      break;
+    }
+    case 'timer': {
+      const mins=parseInt(act.parts[0])||1;
+      setTimeout(()=>{
+        showNotification('⏱️ Minuterie terminée!',`${mins} minute(s) écoulée(s)`);
+        toast(`⏱️ Minuterie: ${mins} min écoulées!`,'warn');
+      },mins*60*1000);
+      const card=makeActionCard('timer',`Minuterie: ${mins} min`,`${mins} minute(s)`);
+      appendMsg('assistant','',card);
+      break;
+    }
+    case 'note': {
+      const text=act.parts.join(':')||'Note vide';
+      addNote(text);
+      const card=makeActionCard('note','Note sauvegardée',text);
+      appendMsg('assistant','',card);
+      break;
+    }
+    case 'weather': {
+      const city=act.parts.join(':')||'Paris';
+      fetchWeather(city);
+      break;
+    }
+    case 'map': {
+      const q=act.parts.join(':')||'';
+      if(q){
+        const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+        const card=makeActionCard('map',`Carte: ${q}`,q,url);
+        appendMsg('assistant','',card);
+        window.open(url,'_blank');
+      }
+      break;
+    }
+    case 'calc': {
+      const expr=act.parts.join(':')||'0';
+      try{const result=eval(expr.replace(/[^0-9+\-*/().% ]/g,''));toast(`📐 ${expr} = ${result}`,'success');}catch{toast('Calcule erreur','error');}
+      break;
+    }
+  }
+}
+
+function makeActionCard(type,title,sub,url){
+  const icons={
+    call:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    sms:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    email:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    reminder:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+    map:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+    note:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    timer:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+  };
+  const arrow= url ? `<a class="action-card ${type}" href="${url}" target="_blank" rel="noopener"><div class="ac-icon ${type}">${icons[type]||''}</div><div class="ac-text"><div class="ac-title">${title}</div><div class="ac-sub">${esc(sub)}</div></div><div class="ac-arrow">›</div></a>` : '';
+  return arrow;
+}
+
+async function fetchWeather(city){
+  try{
+    const r=await fetch(CFG.WEATHER.replace('{city}',encodeURIComponent(city)));
+    const d=await r.json();
+    const c=d.current_condition?.[0];
+    if(!c){appendMsg('assistant',`Météo non disponible pour ${city}`);return;}
+    const temp=c.temp_C;
+    const desc=c.weatherDesc?.[0]?.value||'';
+    const humidity=c.humidity;
+    const wind=c.windspeedKmph;
+    const emoji=desc.includes('sun')||desc.includes('clair')?'☀️':desc.includes('cloud')||desc.includes('nuage')?'☁️':desc.includes('rain')||desc.includes('pluie')?'🌧️':desc.includes('snow')||desc.includes('neige')?'❄️':'🌤️';
+    const card=makeActionCard('map',`${emoji} ${city}`,`${temp}°C — ${desc}`);
+    appendMsg('assistant',`**Météo à ${city}** : ${temp}°C, ${desc}. Humidité: ${humidity}%, Vent: ${wind} km/h`,card);
+  }catch{
+    appendMsg('assistant',`Impossible de récupérer la météo pour ${city}.`);
   }
 }
 
 // =============================================
 // INPUT HANDLER
 // =============================================
-async function handleInput(text) {
-  if (!text.trim()) return;
-  addHistory('user', text);
-  appendMsg('user', text);
-  el.textInput.value = '';
-  el.btnSend.classList.add('hidden');
+async function handleInput(text){
+  if(!text.trim())return;
+  addH('user',text);
+  appendMsg('user',text);
+  el.textInput.value=''; el.btnSend.classList.add('hidden');
+  showTyping(true); setOrb('thinking'); setStatus('Réfléchit...');
 
-  showTyping(true);
-  setOrbState('thinking');
-  setStatus('Réflexion...');
-
-  try {
-    const response = await getAIResponse(text);
-    addHistory('assistant', response);
-    appendMsg('assistant', response);
-    await speak(response);
-  } catch (err) {
+  try{
+    const response=await getAI(text);
+    const{actions}=parseAndExec(response);
+    addH('assistant',response);
+    // Only append text message if there's actual text and not just an action
+    const cleanText=response.replace(/\[ACTION:[^\]]*\]/g,'').trim();
+    if(cleanText){
+      appendMsg('assistant',cleanText);
+    }
+    await speak(cleanText||'Voilà, c\'est fait !');
+  }catch(err){
     console.error(err);
-    const msg = err.message || 'Une erreur est survenue.';
-    appendMsg('assistant', '⚠️ ' + msg);
-    toast(msg, 'error');
+    appendMsg('assistant','⚠️ '+(err.message||'Erreur'));
+    toast(err.message||'Erreur','error');
   }
 
-  showTyping(false);
-  setOrbState('');
-  if (!S.speaking) setStatus('En veille');
+  showTyping(false); setOrb('');
+  if(!ST.speaking)setStatus('Prêt');
 }
 
 // =============================================
-// UI HELPERS
+// EVENT BINDINGS
 // =============================================
-function setOrbState(state) {
-  el.orb.className = 'orb';
-  if (state) el.orb.classList.add(state);
-}
-function setStatus(text, cls) {
-  el.statusText.textContent = text;
-  el.statusText.className = 'status';
-  if (cls) el.statusText.classList.add(cls);
-}
-function toast(msg, type = 'info') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  el.toasts.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
-}
-
-// =============================================
-// EVENTS
-// =============================================
-function bindEvents() {
-  // Orb click
-  el.orb.addEventListener('click', () => {
-    if (S.listening) stopListening();
-    else if (!S.speaking) startListening();
-  });
-
-  // Mic button
-  el.btnMic.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (S.listening) stopListening();
-    else if (!S.speaking) startListening();
-  });
-
+function bindAll(){
+  // Orb
+  el.orb.addEventListener('click',()=>{ if(ST.listening)stopListening(); else if(!ST.speaking)startListening(); });
+  // Mic
+  el.btnMic.addEventListener('click',e=>{e.stopPropagation();if(ST.listening)stopListening();else if(!ST.speaking)startListening();});
   // Text input
-  el.textInput.addEventListener('input', () => {
-    el.btnSend.classList.toggle('hidden', !el.textInput.value.trim());
-  });
-  el.textInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (el.textInput.value.trim()) handleInput(el.textInput.value.trim());
-    }
-  });
-  el.btnSend.addEventListener('click', () => {
-    if (el.textInput.value.trim()) handleInput(el.textInput.value.trim());
+  el.textInput.addEventListener('input',()=>{el.btnSend.classList.toggle('hidden',!el.textInput.value.trim());});
+  el.textInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(el.textInput.value.trim())handleInput(el.textInput.value.trim());}});
+  el.btnSend.addEventListener('click',()=>{if(el.textInput.value.trim())handleInput(el.textInput.value.trim());});
+
+  // Quick actions
+  el.quickActions.addEventListener('click',e=>{
+    const btn=e.target.closest('.qa-btn');
+    if(!btn)return;
+    const action=btn.dataset.action;
+    const prompts={
+      call:'Appelle le numéro suivant : ',
+      sms:'Envoie un SMS au numéro suivant : ',
+      reminder:'Rappelle-moi dans ',
+      note:'Note : ',
+      weather:'Quelle météo à '
+    };
+    el.textInput.focus();
+    el.textInput.value=prompts[action]||'';
+    el.textInput.dispatchEvent(new Event('input'));
   });
 
   // Settings
-  el.btnSettings.addEventListener('click', () => el.overlay.classList.remove('hidden'));
-  el.btnClose.addEventListener('click', () => { saveSettings(); el.overlay.classList.add('hidden'); });
-  el.overlay.addEventListener('click', (e) => { if (e.target === el.overlay) { saveSettings(); el.overlay.classList.add('hidden'); } });
+  el.btnSettings.addEventListener('click',()=>{syncUI();el.overlay.classList.remove('hidden');});
+  el.btnClose.addEventListener('click',()=>{saveSettings();el.overlay.classList.add('hidden');});
+  el.overlay.addEventListener('click',e=>{if(e.target===el.overlay){saveSettings();el.overlay.classList.add('hidden');}});
 
-  // Settings live changes
-  el.ttsEngine.addEventListener('change', () => toggleElevenLabs(el.ttsEngine.value === 'elevenlabs'));
-  el.ttsRate.addEventListener('input', () => { el.rateVal.textContent = parseFloat(el.ttsRate.value).toFixed(1) + 'x'; });
+  // Reminders panel
+  el.btnReminders.addEventListener('click',()=>{renderReminders();el.remindersOverlay.classList.remove('hidden');});
+  el.btnCloseReminders.addEventListener('click',()=>el.remindersOverlay.classList.add('hidden'));
+  el.remindersOverlay.addEventListener('click',e=>{if(e.target===el.remindersOverlay)el.remindersOverlay.classList.add('hidden');});
+
+  // Settings live
+  el.ttsEngine.addEventListener('change',()=>toggleEleven(el.ttsEngine.value==='elevenlabs'));
+  el.ttsRate.addEventListener('input',()=>{el.rateVal.textContent=parseFloat(el.ttsRate.value).toFixed(1)+'x';});
 
   // Test voice
-  el.btnTestVoice.addEventListener('click', async () => {
+  el.btnTestVoice.addEventListener('click',async()=>{
+    el.btnTestVoice.textContent='Écoute...';
     el.btnTestVoice.classList.add('loading');
-    el.btnTestVoice.textContent = 'Écoute...';
-    // Temporarily apply current settings
-    const testSettings = {
-      ttsEngine: el.ttsEngine.value,
-      ttsVoice: el.ttsVoice.value,
-      ttsRate: parseFloat(el.ttsRate.value),
-      elevenKey: el.elevenKey.value,
-      elevenVoice: el.elevenVoice.value
-    };
-    const prev = { ...S.settings };
-    Object.assign(S.settings, testSettings);
-    try {
-      await speak("Bonjour ! Je suis JARVIS, votre assistant personnel. Comment puis-je vous aider aujourd'hui ?");
-    } catch {}
-    Object.assign(S.settings, prev);
+    const prev={ttsEngine:ST.s.ttsEngine,ttsRate:ST.s.ttsRate,ttsVoice:ST.s.ttsVoice};
+    ST.s.ttsEngine=el.ttsEngine.value; ST.s.ttsRate=parseFloat(el.ttsRate.value); ST.s.ttsVoice=el.ttsVoice?.value;
+    try{await speak("Bonjour ! Je suis JARVIS, votre assistant. Comment puis-je vous aider ?");}catch{}
+    Object.assign(ST.s,prev);
+    el.btnTestVoice.textContent='Tester la voix';
     el.btnTestVoice.classList.remove('loading');
-    el.btnTestVoice.textContent = 'Tester la voix';
   });
 
   // Clear data
-  el.btnClear.addEventListener('click', () => {
-    if (confirm('Effacer toutes les données ?')) {
-      localStorage.clear();
-      S.history = [];
-      S.settings = { ...CFG.DEFAULTS };
-      syncSettingsUI();
-      renderHistory();
-      toast('Données effacées', 'success');
-      el.overlay.classList.add('hidden');
+  el.btnClear.addEventListener('click',()=>{
+    if(confirm('Tout effacer ?')){
+      localStorage.clear(); ST.h=[]; ST.reminders=[]; ST.notes=[]; ST.s={...CFG.DEF};
+      syncUI(); el.messages.innerHTML=''; renderReminders();
+      toast('Données effacées','success'); el.overlay.classList.add('hidden');
     }
   });
 
   // Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !el.overlay.classList.contains('hidden')) {
-      saveSettings();
-      el.overlay.classList.add('hidden');
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      if(!el.overlay.classList.contains('hidden')){saveSettings();el.overlay.classList.add('hidden');}
+      if(!el.remindersOverlay.classList.contains('hidden'))el.remindersOverlay.classList.add('hidden');
     }
   });
 
   // Visibility
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { stopListening(); if (S.speaking && S.synth) S.synth.cancel(); }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){stopListening();if(ST.speaking&&ST.synth)ST.synth.cancel();}
   });
+
+  // Restore reminders on load (re-schedule)
+  ST.reminders.filter(r=>!r.done).forEach(r=>{
+    const delay=r.fireAt-Date.now();
+    if(delay>0)setTimeout(()=>fireReminder(r),delay);
+    else fireReminder(r);
+  });
+
+  // Focus input on load
+  setTimeout(()=>el.textInput.focus(),500);
+}
+
+function saveSettings(){
+  ST.s.apiProvider=el.apiProvider.value;
+  ST.s.ttsEngine=el.ttsEngine.value;
+  ST.s.ttsRate=parseFloat(el.ttsRate.value);
+  ST.s.elevenVoice=el.elevenVoice?.value;
+  ST.s.userName=el.userName.value||'Tom';
+  ST.s.continuousListening=el.continuousListening.checked;
+  if(el.apiKey.value){localStorage.setItem(CFG.KEYS.AK,el.apiKey.value);ST.s.apiKey=el.apiKey.value;}
+  if(el.elevenKey.value){localStorage.setItem(CFG.KEYS.EK,el.elevenKey.value);ST.s.elevenKey=el.elevenKey.value;}
+  saveS(); toast('Paramètres sauvegardés','success');
 }
