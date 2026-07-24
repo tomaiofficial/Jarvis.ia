@@ -52,11 +52,11 @@ function showWelcome(){
 // PERSISTENCE
 // =============================================
 function loadAll(){
-  try{ ST.s={...CFG.DEF,...JSON.parse(localStorage.getItem(CFG.KEYS.S))}; }catch{ ST.s={...CFG.DEF}; }
-  const ak=localStorage.getItem(CFG.KEYS.AK); if(ak) ST.s.apiKey=ak;
-  try{ ST.h=JSON.parse(localStorage.getItem(CFG.KEYS.H))||[]; }catch{ ST.h=[]; }
-  try{ ST.reminders=JSON.parse(localStorage.getItem(CFG.KEYS.R))||[]; }catch{ ST.reminders=[]; }
-  try{ ST.notes=JSON.parse(localStorage.getItem(CFG.KEYS.N))||[]; }catch{ ST.notes=[]; }
+  try{ ST.s=Object.assign({},CFG.DEF,JSON.parse(localStorage.getItem(CFG.KEYS.S))); }catch(e){ ST.s=Object.assign({},CFG.DEF); }
+  var ak=localStorage.getItem(CFG.KEYS.AK); if(ak) ST.s.apiKey=ak;
+  try{ ST.h=JSON.parse(localStorage.getItem(CFG.KEYS.H))||[]; }catch(e){ ST.h=[]; }
+  try{ ST.reminders=JSON.parse(localStorage.getItem(CFG.KEYS.R))||[]; }catch(e){ ST.reminders=[]; }
+  try{ ST.notes=JSON.parse(localStorage.getItem(CFG.KEYS.N))||[]; }catch(e){ ST.notes=[]; }
   syncUI(); renderReminders();
 }
 function saveS(){ localStorage.setItem(CFG.KEYS.S,JSON.stringify(ST.s)); }
@@ -156,14 +156,18 @@ function esc(t){ const d=document.createElement('div'); d.textContent=t; return 
 // NOTIFICATIONS
 // =============================================
 function requestNotificationPermission(){
-  if('Notification' in window && Notification.permission==='default'){
-    Notification.requestPermission();
-  }
+  try{
+    if('Notification' in window && Notification.permission==='default'){
+      Notification.requestPermission();
+    }
+  }catch(e){}
 }
 function showNotification(title,body){
-  if('Notification' in window && Notification.permission==='granted'){
-    new Notification(title,{body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',vibrate:[200,100,200]});
-  }
+  try{
+    if('Notification' in window && Notification.permission==='granted'){
+      new Notification(title,{body:body,icon:'icons/icon-192.png',badge:'icons/icon-192.png',vibrate:[200,100,200]});
+    }
+  }catch(e){}
 }
 
 // =============================================
@@ -206,8 +210,8 @@ function localReply(input){
   if(/^calcule?|^calcul|^combien\s+(fait|vaut|donne)/.test(t)){
     const expr=t.replace(/^[a-zàâäéèêëïîôùûüÿçœæ\s]+/i,'').replace(/[^0-9\+\-\*\/\.\(\)%]/g,'');
     if(expr&&/^[\d\+\-\*\/\.\(\)%\s]+$/.test(expr)){
-      try{const r=Function('"use strict";return ('+expr+')')();return `${expr} = **${r}**`;}
-      catch{return 'Impossible de calculer cette expression.';}
+      try{var r=Function('"use strict";return ('+expr+')')();return expr+' = **'+r+'**';}
+      catch(e){return 'Impossible de calculer cette expression.';}
     }
   }
 
@@ -466,7 +470,7 @@ function execAction(act){
     }
     case 'calc': {
       const expr=act.parts.join(':')||'0';
-      try{const result=Function('"use strict";return ('+expr.replace(/[^0-9+\-*/().% ]/g,'')+')')();toast(`${expr} = ${result}`,'success');}catch{toast('Erreur de calcul','error');}
+      try{var result=Function('"use strict";return ('+expr.replace(/[^0-9+\-*/().% ]/g,'')+')')();toast(expr+' = '+result,'success');}catch(e){toast('Erreur de calcul','error');}
       break;
     }
   }
@@ -499,8 +503,8 @@ async function fetchWeather(city){
     const emoji=desc.includes('sun')||desc.includes('clair')?'☀️':desc.includes('cloud')||desc.includes('nuage')?'☁️':desc.includes('rain')||desc.includes('pluie')?'🌧️':desc.includes('snow')||desc.includes('neige')?'❄️':'🌤️';
     const card=makeActionCard('map',`${emoji} ${city}`,`${temp}°C — ${desc}`);
     appendMsg('assistant',`**Météo à ${city}** : ${temp}°C, ${desc}. Humidité: ${humidity}%, Vent: ${wind} km/h`,card);
-  }catch{
-    appendMsg('assistant',`Impossible de récupérer la météo pour ${city}.`);
+  }catch(e){
+    appendMsg('assistant','Impossible de récupérer la météo pour '+city+'.');
   }
 }
 
