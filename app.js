@@ -1,11 +1,15 @@
 /**
- * JARVIS PWA v4 — Assistant Téléphone Complet
- * Actions: Appels, SMS, Email, Rappels, Notes, Météo, Minuteries, Calculs, Contacts, Maps...
+ * JARVIS PWA v5 — Assistant Téléphone Complet SANS API
+ * Fonctionne gratuitement sans aucune clé API
+ * IA: Pollinations.ai (gratuit) + Fallback local intelligent
+ * TTS: Navigateur (gratuit) | Optional: ElevenLabs
+ * Météo: wttr.in (gratuit)
  */
 
 const CFG = {
-  KEYS: { S: 'j4_s', H: 'j4_h', AK: 'j4_ak', EK: 'j4_ek', R: 'j4_r', N: 'j4_n' },
-  DEF: { apiProvider:'gemini', ttsEngine:'browser', ttsRate:1, elevenVoice:'EXAVITQu4vr4xnSDxMaL', userName:'Tom', continuousListening:false },
+  KEYS: { S: 'j5_s', H: 'j5_h', AK: 'j5_ak', EK: 'j5_ek', R: 'j5_r', N: 'j5_n' },
+  DEF: { apiProvider:'free', ttsEngine:'browser', ttsRate:1, elevenVoice:'EXAVITQu4vr4xnSDxMaL', userName:'Tom', continuousListening:false },
+  FREE_AI: 'https://text.pollinations.ai/',
   GEMINI: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
   GROQ: 'https://api.groq.com/openai/v1/chat/completions',
   ELEVEN: 'https://api.elevenlabs.io/v1/text-to-speech',
@@ -62,7 +66,7 @@ function addH(role,content){
 // =============================================
 function syncUI(){
   const s=ST.s;
-  el.apiProvider.value=s.apiProvider||'gemini';
+  el.apiProvider.value=s.apiProvider||'free';
   el.apiKey.value=s.apiKey||'';
   el.ttsEngine.value=s.ttsEngine||'browser';
   el.ttsRate.value=s.ttsRate||1;
@@ -254,23 +258,200 @@ Tu peux combiner texte + action. Réponds toujours d'abord en langage naturel, p
 Si l'utilisateur demande un rappel, calcule le nombre de minutes.
 Si l'utilisateur veut appeler/sms quelqu'un que tu ne connais pas, demande le numéro.`;
 
+// =============================================
+// LOCAL INTELLIGENCE — works without any API
+// =============================================
+function localReply(input){
+  const t=input.toLowerCase().trim();
+  const name=ST.s.userName||'Tom';
+
+  // Date & time
+  if(/heure|temps|quelle heure|date|aujourd.hui|jour/.test(t)){
+    const now=new Date();
+    if(/date|aujourd|jour/.test(t)){
+      return `Aujourd'hui nous sommes le ${now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}.`;
+    }
+    return `Il est ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}.`;
+  }
+
+  // Calculator
+  if(/^calcule?|^calcul|^combien\s+(fait|vaut|donne)|^[\d\s\+\-\*\/\.\(\)%]+$/.test(t)){
+    const expr=t.replace(/^[a-zàâäéèêëïîôùûüÿçœæ\s]+/i,'').replace(/[^0-9\+\-\*\/\.\(\)%]/g,'');
+    if(expr&&/^[\d\+\-\*\/\.\(\)%\s]+$/.test(expr)){
+      try{const r=Function('"use strict";return ('+expr+')')();return `${expr} = **${r}**`;}
+      catch{return 'Impossible de calculer cette expression.';}
+    }
+    const expr2=t.replace(/[^\d\+\-\*\/\.\(\)%]/g,'').trim();
+    if(expr2){
+      try{const r=Function('"use strict";return ('+expr2+')')();return `${expr2} = **${r}**`;}
+      catch{return 'Impossible de calculer cette expression.';}
+    }
+  }
+
+  // Reminders
+  if(/rappelle?[- ]?moi|rappel|minuterie|alarme/.test(t)){
+    const mins=parseInt(t.match(/(\d+)\s*(min|minute)/)?.[1]||'');
+    const what=t.replace(/.*?(rappelle?-?moi\s*(de\s*)?|rappel\s*:?\s*|alarme\s*:?\s*|minuterie\s*:?\s*)/i,'').trim();
+    if(mins>0){
+      return `[ACTION:reminder:${mins}:${what||'Rappel'}] J'编程e un rappel dans ${mins} minute(s).`;
+    }
+    return 'Pour programmer un rappel, dis-moi : "Rappelle-moi dans X minutes de faire truc".';
+  }
+
+  // Timer
+  if(/minuterie|timer/.test(t)){
+    const mins=parseInt(t.match(/(\d+)/)?.[1]||'1');
+    return `[ACTION:timer:${mins}] Minuterie lancée pour ${mins} minute(s).`;
+  }
+
+  // Notes
+  if(/note|prends? note|enregistre|sauvegarde/.test(t)){
+    const what=t.replace(/.*?(note|prends?\s*note|enregistre|sauvegarde)\s*:?\s*/i,'').trim();
+    if(what)return `[ACTION:note:${what}] Note enregistrée : "${what}".`;
+    return 'Pour prendre une note, dis-moi : "Note : ton texte".';
+  }
+
+  // Weather
+  if(/m[eé]t[eé]o|temp[eé]rature|qu.il fait/.test(t)){
+    const city=t.replace(/.*?(m[eé]t[eé]o|temp[eé]rature)\s*(à|a|de|sur|pour)?\s*/i,'').trim().replace(/\s*\?$/,'');
+    if(city)return `[ACTION:weather:${city}]`;
+    return 'Dis-moi la ville : "Météo à Paris" par exemple.';
+  }
+
+  // Call
+  if(/appelle?|appeler|compose|num[eé]ro|t[ée]l[eé]phone/.test(t)){
+    const num=t.match(/([\d\s\-\+\.]{7,})/)?.[1]?.trim()||'';
+    const what=t.replace(/.*?(appelle?|appeler|compose)\s*/i,'').trim();
+    if(num)return `[ACTION:call:${num}:${what||num}] J'ouvre le拨号 pour ${what||num}.`;
+    return 'Dis-moi le numéro ou le contact : "Appelle le 06 12 34 56 78".';
+  }
+
+  // SMS
+  if(/sms|message|texte|envoie.*message/.test(t)){
+    const num=t.match(/([\d\s\-\+\.]{7,})/)?.[1]?.trim()||'';
+    const msg=t.replace(/.*?(sms|message|texte)\s*(à|a|pour)?\s*[\d\s\-\+\.]*\s*/i,'').replace(/.*?envoie.*message\s*/i,'').trim();
+    if(num)return `[ACTION:sms:${num}:${msg||'Bonjour !'}] Message envoyé à ${num}.`;
+    return 'Dis-moi le numéro et le message : "SMS au 06 12 34 56 78 : Bonjour".';
+  }
+
+  // Email
+  if(/email|mail|courriel/.test(t)){
+    const addr=t.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0]||'';
+    const what=t.replace(/.*?(email|mail|courriel)\s*(à|a|pour)?\s*/i,'').replace(/[\w.-]+@[\w.-]+\.\w+/,'').trim();
+    if(addr)return `[ACTION:email:${addr}:${what||'Sans objet'}]`;
+    return 'Dis-moi l\'adresse email : "Email à contact@example.com : objet"';
+  }
+
+  // Map
+  if(/carte|maps?|plan|localise|o[ù] se trouve|adresse|comment aller/.test(t)){
+    const where=t.replace(/.*?(carte?|maps?|plan|localise|o[ù]\s*se\s*trouve|adresse|comment\s*aller)\s*:?\s*/i,'').trim();
+    if(where)return `[ACTION:map:${where}]`;
+    return 'Dis-moi où : "Ouvre Maps gare de Lyon"';
+  }
+
+  // Who am I / identity
+  if(/qui (es-tu|est tu|es vous)|ton nom|je m'appelle|comment tu t'appelles/.test(t)){
+    if(/je m'appelle|mon nom/.test(t)){
+      const newName=t.replace(/.*?(je m'appelle|mon nom (est|c'est)?)\s*/i,'').trim();
+      if(newName){ST.s.userName=newName;saveSettings();return `Enchanté ${newName} ! Je me souviendrai de ton nom.`;}
+    }
+    return `Je suis JARVIS, ton assistant personnel. Et toi tu t'appelles ${name} !`;
+  }
+
+  // Greetings
+  if(/^(bonjour|salut|coucou|hey|hello|bonsoir|yo)\b/.test(t)){
+    const h=new Date().getHours();
+    const greet=h<12?'Bonjour':h<18?'Bon après-midi':'Bonsoir';
+    return `${greet} ${name} ! Comment puis-je t'aider ?`;
+  }
+
+  // How are you
+  if(/comment (va|tu vas|ça va)|ca va|ça roule/.test(t)){
+    return `Je vais très bien ${name}, merci ! Prêt à t'aider. 😊`;
+  }
+
+  // Thanks
+  if(/merci|thanks|thx/.test(t)){
+    return `De rien ${name} ! Je suis toujours là si tu as besoin.`;
+  }
+
+  // Jokes
+  if(/blague|plaisanterie|rigole|amusant|dr[ôo]le/.test(t)){
+    const jokes=[
+      'Pourquoi les plongeurs plongent-ils toujours en arrière ? Parce que sinon ils tomberaient dans le bateau ! 😄',
+      'Qu\'est-ce qu\'un canif ? Un petit couteau. Un gros canif ? Un gros petit couteau ! 😂',
+      'Que fait une fraise sur un cheval ? Tagada ! 🍓',
+      'Pourquoi les maths sont tristes ? Parce qu\'ils ont trop de problèmes ! 📐',
+      'Qu\'est-ce qui est orange et qui monte ? Une orange qui monte ! 🍊'
+    ];
+    return jokes[Math.floor(Math.random()*jokes.length)];
+  }
+
+  // Motivation
+  if(/motivation|motivant|inspir[ae]|citation|phrase du jour/.test(t)){
+    const quotes=[
+      '"Le succès est la somme de petits efforts répétés jour après jour." — Robert Collier',
+      '"La唯一的 façon de faire du bon travail est d\'aimer ce que tu fais." — Steve Jobs',
+      '"Ce n\'est pas la destination mais le voyage qui compte."',
+      '"Chaque expert était autrefois un débutant." — Helen Hayes',
+      '"Le meilleur moment pour planter un arbre était il y a 20 ans. Le deuxième meilleur moment, c\'est maintenant."'
+    ];
+    return quotes[Math.floor(Math.random()*quotes.length)];
+  }
+
+  // Help
+  if(/aide|help|que sais|que peux|commande/.test(t)){
+    return `Je peux t'aider avec :\n\n📞 **Appels** — "Appelle le 06..."\n💬 **SMS** — "SMS au 06..."\n📧 **Email** — "Email à machin..."\n⏰ **Rappels** — "Rappelle-moi dans 30 min"\n📝 **Notes** — "Note : truc à faire"\n🌤️ **Météo** — "Météo à Paris"\n🗺️ **Carte** — "Ouvre Maps..."\n🧮 **Calcul** — "Calcule 15*3+7"\n😂 **Blagues** — "Raconte une blague"\n💪 **Motivation** — "Phrase motivante"\n\nTout est gratuit, aucune clé API nécessaire !`;
+  }
+
+  // Default: no local match → will try online AI
+  return null;
+}
+
+// =============================================
+// AI — Free (Pollinations.ai) or Premium (Gemini/Groq)
+// =============================================
 async function getAI(input){
-  const prov=ST.s.apiProvider||'gemini';
+  const prov=ST.s.apiProvider||'free';
   const key=ST.s.apiKey||localStorage.getItem(CFG.KEYS.AK);
-  if(!key)throw new Error('Clé API manquante — ouvrez les paramètres ⚙️');
   const sys=ACTION_PROMPT.replace('{name}',ST.s.userName||'Tom');
 
-  if(prov==='groq'){
-    const msgs=[{role:'system',content:sys},...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content})),{role:'user',content:input}];
-    const r=await fetch(CFG.GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:msgs,temperature:.7,max_tokens:1024})});
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Erreur ${r.status}`);}
-    const d=await r.json(); return d.choices?.[0]?.message?.content||'Pas de réponse.';
-  } else {
+  // 1. Try local intelligence first (instant, no network)
+  const local=localReply(input);
+  if(local)return local;
+
+  // 2. Free AI — Pollinations.ai (no key needed)
+  if(prov==='free'||(!key&&prov!=='gemini'&&prov!=='groq')){
+    try{
+      const msgs=[{role:'system',content:sys},...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content})),{role:'user',content:input}];
+      const r=await fetch(CFG.FREE_AI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,seed:Math.floor(Math.random()*10000),jsonMode:false})});
+      if(r.ok){
+        const txt=await r.text();
+        if(txt&&txt.length>2)return txt.trim();
+      }
+    }catch(e){console.warn('Pollinations failed, trying fallback',e);}
+    // If Pollinations fails, give a helpful local response
+    return `Je suis en mode hors-ligne pour cette question. Je peux t'aider avec les commandes de base ! Tape "aide" pour voir tout ce que je peux faire.`;
+  }
+
+  // 3. Premium — Gemini
+  if(prov==='gemini'&&key){
     const contents=[...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),{role:'user',parts:[{text:sys+'\n\n'+input}]}];
     const r=await fetch(`${CFG.GEMINI}?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents,generationConfig:{temperature:.7,maxOutputTokens:1024}})});
     if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Erreur ${r.status}`);}
     const d=await r.json(); return d.candidates?.[0]?.content?.parts?.[0]?.text||'Pas de réponse.';
   }
+
+  // 4. Premium — Groq
+  if(prov==='groq'&&key){
+    const msgs=[{role:'system',content:sys},...ST.h.slice(-8).map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content})),{role:'user',content:input}];
+    const r=await fetch(CFG.GROQ,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:msgs,temperature:.7,max_tokens:1024})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`Erreur ${r.status}`);}
+    const d=await r.json(); return d.choices?.[0]?.message?.content||'Pas de réponse.';
+  }
+
+  // Fallback
+  return 'Je ne peux pas traiter cette demande. Tape "aide" pour voir les commandes disponibles.';
 }
 
 // =============================================

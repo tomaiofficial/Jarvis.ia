@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=4.0">
+  <link rel="stylesheet" href="styles.css?v=5.0">
 </head>
 <body>
   <div id="app">
@@ -102,10 +102,10 @@
         <section class="section">
           <h3>Intelligence Artificielle</h3>
           <label class="fl">Fournisseur</label>
-          <select id="apiProvider" class="fs"><option value="gemini">Google Gemini</option><option value="groq">Groq (Llama 3.3)</option></select>
-          <label class="fl">Clé API</label>
-          <input type="password" id="apiKey" class="fi" placeholder="AIza...">
-          <span class="fh">Gemini ou Groq — stockée localement</span>
+          <select id="apiProvider" class="fs"><option value="free">Gratuit — Aucune clé requise</option><option value="gemini">Google Gemini (clé requise)</option><option value="groq">Groq (clé requise)</option></select>
+          <label class="fl">Clé API (optionnel — pour meilleure qualité)</label>
+          <input type="password" id="apiKey" class="fi" placeholder="Laisser vide pour l'IA gratuite">
+          <span class="fh">Sans clé → IA gratuite Pollinations.ai intégrée</span>
         </section>
         <section class="section">
           <h3>Voix</h3>
@@ -156,7 +156,7 @@
   <!-- Toast -->
   <div class="toasts" id="toasts"></div>
 
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=5.0"></script>
   <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
 </body>
 </html>
