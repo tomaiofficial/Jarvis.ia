@@ -1,5 +1,5 @@
-// Service Worker JARVIS v5
-const CACHE = 'jarvis-v5';
+// Service Worker JARVIS v6
+const CACHE = 'jarvis-v6';
 const BASE = self.location.pathname.replace(/\/sw\.js$/, '/');
 const ASSETS = ['index.html', 'styles.css', 'app.js', 'icons/icon-192.png', 'icons/icon-512.png'];
 

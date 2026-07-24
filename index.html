@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#0a0e17">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JARVIS">
@@ -11,15 +11,25 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-  <link rel="stylesheet" href="styles.css?v=5.0">
+  <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body>
   <div id="app">
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <div class="orb-wrap" id="orbWrap">
-          <div class="orb" id="orb"><div class="orb-glow"></div><div class="orb-ring r1"></div><div class="orb-ring r2"></div><div class="orb-core"></div></div>
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <defs>
+              <linearGradient id="jGrad" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0%" stop-color="#58a6ff"/>
+                <stop offset="100%" stop-color="#a371f7"/>
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="28" height="28" rx="8" fill="url(#jGrad)" opacity=".15"/>
+            <rect x="2" y="2" width="28" height="28" rx="8" stroke="url(#jGrad)" stroke-width="1.5" fill="none"/>
+            <text x="16" y="21" text-anchor="middle" fill="url(#jGrad)" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="16" font-weight="800">J</text>
+          </svg>
         </div>
         <div class="header-text">
           <h1>JARVIS</h1>
@@ -28,23 +38,18 @@
       </div>
       <div class="header-right">
         <button class="icon-btn" id="btnReminders" aria-label="Rappels">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="badge hidden" id="reminderBadge">0</span>
         </button>
         <button class="icon-btn" id="btnSettings" aria-label="Paramètres">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
     </header>
 
     <!-- Chat -->
     <main class="chat" id="chat">
-      <div class="messages" id="messages">
-        <div class="msg assistant">
-          <div class="msg-avatar jarvis-av"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          <div class="msg-body"><div class="msg-text">Salut Tom ! Je suis <strong>JARVIS</strong>. Tape-moi un message et je m'occupe de tout : appels, SMS, rappels, notes, météo, calculs... 🚀</div></div>
-        </div>
-      </div>
+      <div class="messages" id="messages"></div>
       <div class="typing hidden" id="typing">
         <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
       </div>
@@ -52,25 +57,29 @@
 
     <!-- Quick actions -->
     <div class="quick-actions" id="quickActions">
-      <button class="qa-btn" data-action="call" data-val="">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      <button class="qa-btn" data-action="call">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         Appeler
       </button>
-      <button class="qa-btn" data-action="sms" data-val="">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <button class="qa-btn" data-action="sms">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         SMS
       </button>
       <button class="qa-btn" data-action="reminder">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         Rappel
       </button>
       <button class="qa-btn" data-action="note">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Note
       </button>
       <button class="qa-btn" data-action="weather">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Météo
+      </button>
+      <button class="qa-btn" data-action="map">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Maps
       </button>
     </div>
 
@@ -79,10 +88,7 @@
       <div class="input-row">
         <input type="text" id="textInput" placeholder="Écrivez un message..." autocomplete="off" spellcheck="false">
         <button class="send-btn hidden" id="btnSend" aria-label="Envoyer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-        <button class="mic-btn" id="btnMic" aria-label="Micro">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
     </footer>
@@ -95,44 +101,55 @@
       <div class="modal-head">
         <h2>Paramètres</h2>
         <button class="icon-btn sm" id="btnClose" aria-label="Fermer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
+        <!-- Profile -->
         <section class="section">
+          <div class="section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3>Profil</h3>
+          <label class="fl">Ton prénom</label>
+          <input type="text" id="userName" class="fi" value="Tom" placeholder="Comment t'appelles-tu ?">
+        </section>
+
+        <!-- AI -->
+        <section class="section">
+          <div class="section-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27a7 7 0 0 1-5.46 2.54A2 2 0 0 1 14 23h-4a2 2 0 0 1-1.73-1A7 7 0 0 1 2.8 19H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 12a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"/></svg>
+          </div>
           <h3>Intelligence Artificielle</h3>
           <label class="fl">Fournisseur</label>
-          <select id="apiProvider" class="fs"><option value="free">Gratuit — Aucune clé requise</option><option value="gemini">Google Gemini (clé requise)</option><option value="groq">Groq (clé requise)</option></select>
-          <label class="fl">Clé API (optionnel — pour meilleure qualité)</label>
-          <input type="password" id="apiKey" class="fi" placeholder="Laisser vide pour l'IA gratuite">
-          <span class="fh">Sans clé → IA gratuite Pollinations.ai intégrée</span>
-        </section>
-        <section class="section">
-          <h3>Voix</h3>
-          <label class="fl">Moteur</label>
-          <select id="ttsEngine" class="fs"><option value="browser">Navigateur</option><option value="elevenlabs">ElevenLabs</option></select>
-          <div id="elevenLabsFields" class="hidden">
-            <label class="fl">Clé API ElevenLabs</label>
-            <input type="password" id="elevenKey" class="fi" placeholder="sk_...">
-            <span class="fh">Gratuit sur <a href="https://elevenlabs.io" target="_blank" style="color:var(--accent)">elevenlabs.io</a></span>
-            <label class="fl">Voice ID</label>
-            <input type="text" id="elevenVoice" class="fi" value="EXAVITQu4vr4xnSDxMaL">
+          <select id="apiProvider" class="fs">
+            <option value="free">Gratuit — Aucune clé requise</option>
+            <option value="gemini">Google Gemini (clé requise)</option>
+            <option value="groq">Groq (clé requise)</option>
+          </select>
+          <div class="api-key-group">
+            <label class="fl">Clé API <span class="optional">(optionnel)</span></label>
+            <input type="password" id="apiKey" class="fi" placeholder="Laisser vide pour l'IA gratuite">
+            <span class="fh">Sans clé → IA gratuite Pollinations.ai intégrée</span>
           </div>
-          <label class="fl">Vitesse</label>
-          <input type="range" id="ttsRate" min="0.5" max="2" step="0.1" value="1" class="frange">
-          <div class="rl"><span>0.5x</span><span id="rateVal">1.0x</span><span>2x</span></div>
-          <button class="btn-test" id="btnTestVoice" type="button">Tester la voix</button>
         </section>
+
+        <!-- Data -->
         <section class="section">
-          <h3>Préférences</h3>
-          <label class="fl">Prénom</label>
-          <input type="text" id="userName" class="fi" value="Tom">
-          <div class="toggle-row"><span>Écoute continue</span><label class="switch"><input type="checkbox" id="continuousListening"><span class="slider"></span></label></div>
-        </section>
-        <section class="section">
+          <div class="section-icon danger-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </div>
           <h3>Données</h3>
-          <button class="btn-danger" id="btnClear">Effacer toutes les données</button>
+          <p class="section-desc">Toutes les données sont stockées localement sur cet appareil.</p>
+          <button class="btn-danger" id="btnClear">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Effacer toutes les données
+          </button>
         </section>
+
+        <div class="settings-footer">
+          <span>JARVIS v6.0 — 100% gratuit</span>
+        </div>
       </div>
     </div>
   </div>
@@ -144,7 +161,7 @@
       <div class="modal-head">
         <h2>Rappels & Notes</h2>
         <button class="icon-btn sm" id="btnCloseReminders" aria-label="Fermer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body" id="remindersList">
@@ -156,7 +173,7 @@
   <!-- Toast -->
   <div class="toasts" id="toasts"></div>
 
-  <script src="app.js?v=5.0"></script>
+  <script src="app.js?v=6.0"></script>
   <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
 </body>
 </html>
