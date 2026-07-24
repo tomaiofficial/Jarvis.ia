@@ -1,21 +1,31 @@
 // Service Worker pour JARVIS PWA
-const CACHE_NAME = 'jarvis-v1';
+const CACHE_NAME = 'jarvis-v2';
+
+// Calculer la base URL automatiquement
+const BASE_URL = self.location.pathname.replace(/\/sw\.js$/, '/');
+
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/styles.css',
-  '/app.js',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '',
+  'index.html',
+  'manifest.json',
+  'styles.css',
+  'app.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png'
 ];
 
 // Installation - mise en cache des assets statiques
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then((cache) => {
+        return cache.addAll(STATIC_ASSETS.map(path => new URL(path, BASE_URL).href));
+      })
       .then(() => self.skipWaiting())
+      .catch(err => {
+        console.warn('SW install cache error:', err);
+        return self.skipWaiting();
+      })
   );
 });
 
@@ -43,8 +53,7 @@ self.addEventListener('fetch', (event) => {
   if (!url.protocol.startsWith('http')) return;
 
   // API calls - Network First
-  if (url.pathname.startsWith('/api/') ||
-      url.hostname.includes('generativelanguage.googleapis.com') ||
+  if (url.hostname.includes('generativelanguage.googleapis.com') ||
       url.hostname.includes('api.groq.com')) {
     event.respondWith(networkFirst(request));
     return;
@@ -67,8 +76,10 @@ async function cacheFirst(request) {
     return response;
   } catch (error) {
     // Fallback pour les pages HTML
-    if (request.headers.get('accept').includes('text/html')) {
-      return caches.match('/index.html');
+    const accept = request.headers.get('accept') || '';
+    if (accept.includes('text/html')) {
+      const baseIndex = new URL('index.html', BASE_URL).href;
+      return caches.match(baseIndex) || new Response('Offline', { status: 503 });
     }
     throw error;
   }

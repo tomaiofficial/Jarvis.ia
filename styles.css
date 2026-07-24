@@ -517,14 +517,15 @@ body {
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
   z-index: 1000;
-  opacity: 0;
-  visibility: hidden;
+  opacity: 1;
+  visibility: visible;
   transition: all var(--transition-normal);
 }
 
-.modal-backdrop:not(.hidden) {
-  opacity: 1;
-  visibility: visible;
+.modal-backdrop.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .settings-modal {

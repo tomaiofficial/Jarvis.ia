@@ -44,13 +44,11 @@ let state = {
 const elements = {
   // Orb & Status
   orb: document.getElementById('orb'),
-  orbRing: document.getElementById('orbRing'),
-  orbCore: document.getElementById('orbCore'),
   statusText: document.getElementById('statusText'),
-  statusIndicator: document.getElementById('statusIndicator'),
 
   // Chat
   chatMessages: document.getElementById('chatMessages'),
+  chatContainer: document.getElementById('chatContainer'),
   typingIndicator: document.getElementById('typingIndicator'),
 
   // Input
