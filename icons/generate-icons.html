@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JARVIS Icon Generator</title>
+  <style>
+    body { font-family: system-ui; padding: 20px; background: #0a0a0f; color: white; max-width: 800px; margin: 0 auto; }
+    h1 { color: #00d4ff; }
+    .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-top: 20px; }
+    .icon-item { background: #1a1a2e; border-radius: 12px; padding: 16px; text-align: center; border: 1px solid #2a2a3e; }
+    .icon-item img { width: 80px; height: 80px; border-radius: 16px; }
+    .icon-item .size { font-size: 12px; color: #6a6a80; margin-top: 8px; }
+    button { background: linear-gradient(135deg, #00d4ff, #00ff88); border: none; color: #0a0a0f; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin: 8px 8px 8px 0; }
+    button:hover { transform: scale(1.02); }
+    .status { margin-top: 20px; padding: 12px; background: #1a1a2e; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🎨 JARVIS PWA Icon Generator</h1>
+  <p>Cliquez sur "Générer toutes les icônes" pour créer les PNG requis pour le PWA.</p>
+
+  <button onclick="generateAllIcons()">🚀 Générer toutes les icônes</button>
+  <button onclick="downloadAll()">📥 Télécharger tout (ZIP)</button>
+
+  <div class="status" id="status">Prêt à générer</div>
+
+  <div class="icon-grid" id="iconGrid"></div>
+
+  <script>
+    const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+      <defs>
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#0a0a0f"/>
+          <stop offset="100%" style="stop-color:#1a1a2e"/>
+        </linearGradient>
+        <linearGradient id="orbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#00d4ff"/>
+          <stop offset="50%" style="stop-color:#00ff88"/>
+          <stop offset="100%" style="stop-color:#00d4ff"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <rect width="512" height="512" rx="80" fill="url(#bgGrad)"/>
+      <circle cx="256" cy="256" r="220" fill="none" stroke="url(#orbGrad)" stroke-width="2" opacity="0.15"/>
+      <circle cx="256" cy="256" r="190" fill="none" stroke="url(#orbGrad)" stroke-width="1.5" opacity="0.1"/>
+      <circle cx="256" cy="256" r="160" fill="none" stroke="url(#orbGrad)" stroke-width="1" opacity="0.08"/>
+      <circle cx="256" cy="256" r="120" fill="url(#orbGrad)" filter="url(#glow)"/>
+      <circle cx="256" cy="256" r="60" fill="url(#orbGrad)">
+        <animate attributeName="r" values="60;70;60" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0.7;1" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <g fill="url(#orbGrad)">
+        <circle cx="256" cy="100" r="4"><animateTransform attributeName="transform" type="rotate" from="0 256 256" to="360 256 256" dur="8s" repeatCount="indefinite"/></circle>
+        <circle cx="256" cy="100" r="3"><animateTransform attributeName="transform" type="rotate" from="120 256 256" to="480 256 256" dur="10s" repeatCount="indefinite"/></circle>
+        <circle cx="256" cy="100" r="2.5"><animateTransform attributeName="transform" type="rotate" from="240 256 256" to="600 256 256" dur="12s" repeatCount="indefinite"/></circle>
+      </g>
+      <text x="256" y="420" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="white" letter-spacing="4">JARVIS</text>
+    </svg>`;
+
+    const grid = document.getElementById('iconGrid');
+    const status = document.getElementById('status');
+
+    function renderIcons() {
+      grid.innerHTML = '';
+      sizes.forEach(size => {
+        const item = document.createElement('div');
+        item.className = 'icon-item';
+        item.innerHTML = `
+          <canvas id="canvas-${size}" width="${size}" height="${size}"></canvas>
+          <div class="size">${size}×${size}</div>
+        `;
+        grid.appendChild(item);
+      });
+    }
+
+    async function generateAllIcons() {
+      status.textContent = 'Génération en cours...';
+      renderIcons();
+
+      for (const size of sizes) {
+        const canvas = document.getElementById(`canvas-${size}`);
+        const ctx = canvas.getContext('2d');
+
+        // Dessiner le fond
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#0a0a0f');
+        gradient.addColorStop(1, '#1a1a2e');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+
+        // Coins arrondis
+        const radius = size * 0.156;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, radius);
+        ctx.clip();
+
+        // Redessiner le fond avec clip
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+
+        // Dessiner l'orb
+        const center = size / 2;
+        const orbRadius = size * 0.234;
+
+        // Anneaux
+        ctx.strokeStyle = '#00d4ff';
+        ctx.lineWidth = size * 0.004;
+        ctx.globalAlpha = 0.15;
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.43, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.globalAlpha = 0.1;
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.37, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Orb principal
+        const orbGrad = ctx.createRadialGradient(center, center, 0, center, center, orbRadius);
+        orbGrad.addColorStop(0, '#00ffff');
+        orbGrad.addColorStop(0.5, '#00ff88');
+        orbGrad.addColorStop(1, '#00d4ff');
+        ctx.fillStyle = orbGrad;
+        ctx.globalAlpha = 1;
+        ctx.shadowColor = '#00d4ff';
+        ctx.shadowBlur = size * 0.06;
+        ctx.beginPath();
+        ctx.arc(center, center, orbRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        const coreGrad = ctx.createRadialGradient(center, center, 0, center, center, orbRadius * 0.5);
+        coreGrad.addColorStop(0, '#00ffff');
+        coreGrad.addColorStop(1, '#00ff88');
+        ctx.fillStyle = coreGrad;
+        ctx.beginPath();
+        ctx.arc(center, center, orbRadius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Particules
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#00ff88';
+        for (let i = 0; i < 3; i++) {
+          const angle = (Date.now() / 1000 + i * 2) % (Math.PI * 2);
+          const r = size * 0.2;
+          ctx.beginPath();
+          ctx.arc(center + Math.cos(angle) * r, center + Math.sin(angle) * r, size * 0.008, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Texte JARVIS
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${size * 0.055}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.letterSpacing = '0.04em';
+        ctx.fillText('JARVIS', center, size * 0.88);
+
+        // Reset
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+
+      status.textContent = `✅ ${sizes.length} icônes générées avec succès !`;
+    }
+
+    function downloadAll() {
+      sizes.forEach(size => {
+        const canvas = document.getElementById(`canvas-${size}`);
+        const link = document.createElement('a');
+        link.download = `icon-${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+      status.textContent = '📥 Téléchargement démarré';
+    }
+
+    // Initial render
+    renderIcons();
+  </script>
+</body>
+</html>
