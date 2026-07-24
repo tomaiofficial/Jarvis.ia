@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#00d4ff">
+  <meta name="theme-color" content="#0d1117">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JARVIS">
-  <meta name="description" content="JARVIS - Assistant vocal intelligent pour iPhone, Android et Desktop">
+  <meta name="description" content="JARVIS - Assistant vocal IA intelligent">
   <title>JARVIS</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -15,186 +15,146 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header avec orbite animée -->
+  <div id="app">
+    <!-- Header -->
     <header class="header">
-      <div class="header-content">
-        <div class="orb-container">
+      <div class="header-left">
+        <div class="orb-wrapper" id="orbWrapper">
           <div class="orb" id="orb">
+            <div class="orb-glow"></div>
+            <div class="orb-ring r1"></div>
+            <div class="orb-ring r2"></div>
             <div class="orb-core"></div>
-            <div class="orb-ring ring-1"></div>
-            <div class="orb-ring ring-2"></div>
-            <div class="orb-ring ring-3"></div>
-            <div class="orb-particles"></div>
           </div>
-          <div class="orb-status" id="statusText">En veille</div>
         </div>
-        <div class="header-info">
-          <h1 class="app-title">JARVIS</h1>
-          <p class="app-subtitle">Assistant vocal intelligent</p>
+        <div class="header-text">
+          <h1>JARVIS</h1>
+          <span class="status" id="statusText">En veille</span>
         </div>
-        <button class="btn-settings" id="btnSettings" aria-label="Paramètres">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-        </button>
       </div>
+      <button class="icon-btn" id="btnSettings" aria-label="Paramètres">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
     </header>
 
-    <!-- Zone de conversation -->
-    <main class="chat-container" id="chatContainer">
-      <div class="messages" id="chatMessages">
-        <div class="message system welcome">
-          <div class="message-avatar">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
+    <!-- Chat -->
+    <main class="chat" id="chat">
+      <div class="messages" id="messages">
+        <div class="msg system">
+          <div class="msg-avatar jarvis-avatar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </div>
-          <div class="message-content">
-            <p>Bonjour ! Je suis JARVIS, votre assistant vocal intelligent.</p>
-            <p class="hint">Appuyez sur l'orbe ou dites "JARVIS" pour commencer</p>
+          <div class="msg-body">
+            <div class="msg-text">Bonjour Tom ! Je suis <strong>JARVIS</strong>, votre assistant vocal intelligent. Comment puis-je vous aider ?</div>
           </div>
         </div>
       </div>
-
-      <!-- Indicateur de frappe -->
-      <div class="typing-indicator hidden" id="typingIndicator">
-        <div class="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <span class="typing-text">JARVIS réfléchit...</span>
+      <div class="typing hidden" id="typing">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
       </div>
     </main>
 
-    <!-- Barre d'entrée -->
-    <footer class="input-area">
-      <div class="input-wrapper">
-        <button class="btn-mic" id="btnMic" aria-label="Activer la voix">
-          <svg class="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="22"></line>
-          </svg>
-          <svg class="mic-listening hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            <line x1="12" y1="19" x2="12" y2="22"></line>
-          </svg>
+    <!-- Input -->
+    <footer class="input-bar">
+      <div class="input-row">
+        <button class="mic-btn" id="btnMic" aria-label="Microphone">
+          <svg class="ic-mic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <svg class="ic-wave hidden" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="1" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="8" y1="23" x2="16" y2="23" stroke="currentColor" stroke-width="2"/></svg>
         </button>
-        <input type="text" class="text-input" id="textInput" placeholder="Tapez votre message..." autocomplete="off" spellcheck="false">
-        <button class="btn-send hidden" id="btnSend" aria-label="Envoyer">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
+        <input type="text" id="textInput" placeholder="Écrivez un message..." autocomplete="off" spellcheck="false">
+        <button class="send-btn hidden" id="btnSend" aria-label="Envoyer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <p class="input-hint" id="inputHint">Appuyez sur l'orbe ou le micro pour parler</p>
+      <p class="hint" id="inputHint">Appuyez sur le micro ou tapez un message</p>
     </footer>
   </div>
 
-  <!-- Modal Paramètres -->
-  <div class="modal-backdrop hidden" id="settingsModal">
-    <div class="settings-modal">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
+  <!-- Settings Modal -->
+  <div class="overlay hidden" id="overlay">
+    <div class="modal" id="modal">
+      <div class="modal-drag"></div>
+      <div class="modal-head">
         <h2>Paramètres</h2>
-        <button class="btn-close-modal" id="btnCloseModal" aria-label="Fermer">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+        <button class="icon-btn sm" id="btnClose" aria-label="Fermer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <div class="modal-content">
-        <div class="settings-section">
-          <h3>API & IA</h3>
-          <div class="setting-item">
-            <label class="setting-label" for="apiProvider">Fournisseur IA</label>
-            <select class="setting-select" id="apiProvider">
-              <option value="gemini">Google Gemini (recommandé)</option>
-              <option value="groq">Groq (Llama 3.3)</option>
-            </select>
-          </div>
-          <div class="setting-item">
-            <label class="setting-label" for="apiKey">Clé API</label>
-            <input class="setting-input" type="password" id="apiKey" placeholder="Entrez votre clé API">
-            <span class="setting-hint">Stockée localement dans votre navigateur</span>
-          </div>
-        </div>
+      <div class="modal-body">
+        <!-- IA -->
+        <section class="section">
+          <h3>Intelligence Artificielle</h3>
+          <label class="field-label">Fournisseur</label>
+          <select id="apiProvider" class="field-select">
+            <option value="gemini">Google Gemini</option>
+            <option value="groq">Groq (Llama 3.3)</option>
+          </select>
+          <label class="field-label">Clé API IA</label>
+          <input type="password" id="apiKey" class="field-input" placeholder="AIza...">
+          <span class="field-hint">Gemini ou Groq — stockée localement</span>
+        </section>
 
-        <div class="settings-section">
-          <h3>Voix & Audio</h3>
-          <div class="setting-item">
-            <label class="setting-label" for="ttsVoice">Voix TTS</label>
-            <select class="setting-select" id="ttsVoice">
-              <option value="auto">Auto (navigateur)</option>
-              <option value="fr-FR">Français (France)</option>
-              <option value="fr-CA">Français (Canada)</option>
-            </select>
+        <!-- Voix -->
+        <section class="section">
+          <h3>Voix & Parole</h3>
+          <label class="field-label">Moteur vocal</label>
+          <select id="ttsEngine" class="field-select">
+            <option value="browser">Navigateur (gratuit)</option>
+            <option value="elevenlabs">ElevenLabs (premium)</option>
+          </select>
+          <div id="elevenLabsFields" class="hidden">
+            <label class="field-label">Clé API ElevenLabs</label>
+            <input type="password" id="elevenKey" class="field-input" placeholder="sk_...">
+            <label class="field-label">Voice ID</label>
+            <input type="text" id="elevenVoice" class="field-input" placeholder="EXAVITQu4vr4xnSDxMaL">
+            <span class="field-hint">Ex: Eleven Multilingual v2 — voix naturelle</span>
           </div>
-          <div class="setting-item">
-            <div class="toggle-wrapper">
-              <div class="toggle-info">
-                <div class="toggle-title">Détection "JARVIS" (Wake word)</div>
-              </div>
-              <div class="toggle-switch">
-                <input type="checkbox" id="wakeWordEnabled" checked>
-                <span class="toggle-slider"></span>
-              </div>
-            </div>
-          </div>
-          <div class="setting-item">
-            <div class="toggle-wrapper">
-              <div class="toggle-info">
-                <div class="toggle-title">Écoute continue</div>
-              </div>
-              <div class="toggle-switch">
-                <input type="checkbox" id="continuousListening">
-                <span class="toggle-slider"></span>
-              </div>
-            </div>
-          </div>
-        </div>
+          <label class="field-label">Voix navigateur</label>
+          <select id="ttsVoice" class="field-select">
+            <option value="auto">Automatique</option>
+          </select>
+          <label class="field-label">Vitesse</label>
+          <input type="range" id="ttsRate" min="0.5" max="2" step="0.1" value="1" class="field-range">
+          <div class="range-labels"><span>0.5x</span><span id="rateVal">1.0x</span><span>2.0x</span></div>
+        </section>
 
-        <div class="settings-section">
-          <h3>Personnalisation</h3>
-          <div class="setting-item">
-            <label class="setting-label" for="userName">Votre prénom</label>
-            <input class="setting-input" type="text" id="userName" placeholder="Tom">
+        <!-- Personnalisation -->
+        <section class="section">
+          <h3>Préférences</h3>
+          <label class="field-label">Votre prénom</label>
+          <input type="text" id="userName" class="field-input" placeholder="Tom" value="Tom">
+          <label class="field-label">Wake word</label>
+          <input type="text" id="wakeWord" class="field-input" placeholder="JARVIS" value="JARVIS">
+          <div class="toggle-row">
+            <span>Détection vocale "JARVIS"</span>
+            <label class="switch"><input type="checkbox" id="wakeWordEnabled" checked><span class="slider"></span></label>
           </div>
-          <div class="setting-item">
-            <label class="setting-label" for="wakeWord">Mot de réveil</label>
-            <input class="setting-input" type="text" id="wakeWord" value="JARVIS" placeholder="JARVIS">
+          <div class="toggle-row">
+            <span>Écoute continue</span>
+            <label class="switch"><input type="checkbox" id="continuousListening"><span class="slider"></span></label>
           </div>
-        </div>
+        </section>
 
-        <div class="settings-section">
+        <!-- Données -->
+        <section class="section">
           <h3>Données</h3>
-          <button class="btn-danger" id="btnClearData">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-            Effacer toutes les données locales
-          </button>
-        </div>
+          <button class="btn-danger" id="btnClear">Effacer toutes les données</button>
+        </section>
       </div>
     </div>
   </div>
 
-  <!-- Toast notifications -->
-  <div class="toast-container" id="toastContainer"></div>
+  <!-- Toast -->
+  <div class="toasts" id="toasts"></div>
 
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('SW registered:', reg.scope))
-        .catch(err => console.log('SW registration failed:', err));
+      navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   </script>
 </body>

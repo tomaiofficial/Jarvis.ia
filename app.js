@@ -1,752 +1,524 @@
 /**
- * JARVIS - Assistant Vocal Intelligent
- * Application principale
+ * JARVIS PWA — Assistant Vocal IA
  */
 
-// ============================================
-// CONFIGURATION & ÉTAT GLOBAL
-// ============================================
-const CONFIG = {
-  STORAGE_KEYS: {
-    SETTINGS: 'jarvis_settings',
-    HISTORY: 'jarvis_history',
-    API_KEY: 'jarvis_api_key'
-  },
-  DEFAULT_SETTINGS: {
+// =============================================
+// CONFIG
+// =============================================
+const CFG = {
+  KEYS: { SETTINGS: 'j_settings', HISTORY: 'j_history', API_KEY: 'j_apikey', ELEVEN_KEY: 'j_eleven' },
+  DEFAULTS: {
     apiProvider: 'gemini',
+    ttsEngine: 'browser',
     ttsVoice: 'auto',
-    wakeWordEnabled: true,
-    continuousListening: false,
+    ttsRate: 1,
+    elevenVoice: 'EXAVITQu4vr4xnSDxMaL',
     userName: 'Tom',
-    wakeWord: 'JARVIS'
+    wakeWord: 'JARVIS',
+    wakeWordEnabled: true,
+    continuousListening: false
   },
-  API_ENDPOINTS: {
-    gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-    groq: 'https://api.groq.com/openai/v1/chat/completions'
-  }
+  GEMINI_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  GROQ_URL: 'https://api.groq.com/openai/v1/chat/completions',
+  ELEVEN_URL: 'https://api.elevenlabs.io/v1/text-to-speech'
 };
 
-let state = {
+const S = {
   settings: {},
   history: [],
-  isListening: false,
-  isSpeaking: false,
+  listening: false,
+  speaking: false,
   recognition: null,
-  synth: window.speechSynthesis,
-  mediaRecorder: null,
-  audioChunks: [],
-  wakeWordDetector: null
+  synth: speechSynthesis
 };
 
-// ============================================
-// ÉLÉMENTS DOM
-// ============================================
-const elements = {
-  // Orb & Status
-  orb: document.getElementById('orb'),
-  statusText: document.getElementById('statusText'),
-
-  // Chat
-  chatMessages: document.getElementById('chatMessages'),
-  chatContainer: document.getElementById('chatContainer'),
-  typingIndicator: document.getElementById('typingIndicator'),
-
-  // Input
-  btnMic: document.getElementById('btnMic'),
-  micIcon: document.querySelector('.mic-icon'),
-  micListening: document.querySelector('.mic-listening'),
-  textInput: document.getElementById('textInput'),
-  btnSend: document.getElementById('btnSend'),
-  inputHint: document.getElementById('inputHint'),
-
-  // Settings
-  settingsBtn: document.getElementById('btnSettings'),
-  settingsModal: document.getElementById('settingsModal'),
-  modalBackdrop: document.getElementById('modalBackdrop'),
-  btnCloseModal: document.getElementById('btnCloseModal'),
-
+// =============================================
+// DOM
+// =============================================
+const $ = id => document.getElementById(id);
+const el = {
+  orb: $('orb'),
+  statusText: $('statusText'),
+  messages: $('messages'),
+  chat: $('chat'),
+  typing: $('typing'),
+  btnMic: $('btnMic'),
+  textInput: $('textInput'),
+  btnSend: $('btnSend'),
+  inputHint: $('inputHint'),
+  btnSettings: $('btnSettings'),
+  overlay: $('overlay'),
+  modal: $('modal'),
+  btnClose: $('btnClose'),
+  toasts: $('toasts'),
   // Settings inputs
-  apiProvider: document.getElementById('apiProvider'),
-  apiKey: document.getElementById('apiKey'),
-  ttsVoice: document.getElementById('ttsVoice'),
-  wakeWordEnabled: document.getElementById('wakeWordEnabled'),
-  continuousListening: document.getElementById('continuousListening'),
-  userName: document.getElementById('userName'),
-  wakeWord: document.getElementById('wakeWord'),
-  btnClearData: document.getElementById('btnClearData'),
-
-  // Toast
-  toastContainer: document.getElementById('toastContainer')
+  apiProvider: $('apiProvider'),
+  apiKey: $('apiKey'),
+  ttsEngine: $('ttsEngine'),
+  ttsVoice: $('ttsVoice'),
+  ttsRate: $('ttsRate'),
+  rateVal: $('rateVal'),
+  elevenKey: $('elevenKey'),
+  elevenVoice: $('elevenVoice'),
+  elevenLabsFields: $('elevenLabsFields'),
+  userName: $('userName'),
+  wakeWord: $('wakeWord'),
+  wakeWordEnabled: $('wakeWordEnabled'),
+  continuousListening: $('continuousListening'),
+  btnClear: $('btnClear')
 };
 
-// ============================================
-// INITIALISATION
-// ============================================
+// =============================================
+// INIT
+// =============================================
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadSettings();
-  await loadHistory();
-  initEventListeners();
-  initSpeechRecognition();
-  initWakeWordDetection();
+  loadSettings();
+  loadHistory();
   renderHistory();
-  updateUI();
-  showToast('JARVIS prêt', 'success');
+  bindEvents();
+  initSpeech();
+  populateVoices();
+  toast('JARVIS prêt', 'success');
 });
 
-// ============================================
-// GESTION DES PARAMÈTRES
-// ============================================
-async function loadSettings() {
+// =============================================
+// SETTINGS
+// =============================================
+function loadSettings() {
   try {
-    const stored = localStorage.getItem(CONFIG.STORAGE_KEYS.SETTINGS);
-    state.settings = stored ? { ...CONFIG.DEFAULT_SETTINGS, ...JSON.parse(stored) } : { ...CONFIG.DEFAULT_SETTINGS };
-
-    // Charger la clé API séparément (plus sécurisé)
-    const apiKey = localStorage.getItem(CONFIG.STORAGE_KEYS.API_KEY);
-    if (apiKey) state.settings.apiKey = apiKey;
-
-    // Appliquer aux inputs
-    applySettingsToInputs();
-  } catch (e) {
-    console.error('Erreur chargement settings:', e);
-    state.settings = { ...CONFIG.DEFAULT_SETTINGS };
-  }
+    const stored = localStorage.getItem(CFG.KEYS.SETTINGS);
+    S.settings = stored ? { ...CFG.DEFAULTS, ...JSON.parse(stored) } : { ...CFG.DEFAULTS };
+    const ak = localStorage.getItem(CFG.KEYS.API_KEY);
+    if (ak) S.settings.apiKey = ak;
+    const ek = localStorage.getItem(CFG.KEYS.ELEVEN_KEY);
+    if (ek) S.settings.elevenKey = ek;
+  } catch { S.settings = { ...CFG.DEFAULTS }; }
+  syncSettingsUI();
 }
 
-function applySettingsToInputs() {
-  const s = state.settings;
-  elements.apiProvider.value = s.apiProvider || 'gemini';
-  elements.apiKey.value = s.apiKey || '';
-  elements.ttsVoice.value = s.ttsVoice || 'auto';
-  elements.wakeWordEnabled.checked = s.wakeWordEnabled !== false;
-  elements.continuousListening.checked = s.continuousListening === true;
-  elements.userName.value = s.userName || 'Tom';
-  elements.wakeWord.value = s.wakeWord || 'JARVIS';
+function syncSettingsUI() {
+  const s = S.settings;
+  el.apiProvider.value = s.apiProvider || 'gemini';
+  el.apiKey.value = s.apiKey || '';
+  el.ttsEngine.value = s.ttsEngine || 'browser';
+  el.ttsVoice.value = s.ttsVoice || 'auto';
+  el.ttsRate.value = s.ttsRate || 1;
+  el.rateVal.textContent = (s.ttsRate || 1).toFixed(1) + 'x';
+  el.elevenKey.value = s.elevenKey || '';
+  el.elevenVoice.value = s.elevenVoice || CFG.DEFAULTS.elevenVoice;
+  el.userName.value = s.userName || 'Tom';
+  el.wakeWord.value = s.wakeWord || 'JARVIS';
+  el.wakeWordEnabled.checked = s.wakeWordEnabled !== false;
+  el.continuousListening.checked = s.continuousListening === true;
+  toggleElevenLabs(s.ttsEngine === 'elevenlabs');
 }
 
-async function saveSettings() {
-  try {
-    const newSettings = {
-      apiProvider: elements.apiProvider.value,
-      ttsVoice: elements.ttsVoice.value,
-      wakeWordEnabled: elements.wakeWordEnabled.checked,
-      continuousListening: elements.continuousListening.checked,
-      userName: elements.userName.value || 'Tom',
-      wakeWord: elements.wakeWord.value || 'JARVIS'
-    };
-
-    // Sauvegarder la clé API séparément
-    if (elements.apiKey.value) {
-      localStorage.setItem(CONFIG.STORAGE_KEYS.API_KEY, elements.apiKey.value);
-      newSettings.apiKey = elements.apiKey.value;
-    }
-
-    state.settings = { ...state.settings, ...newSettings };
-    localStorage.setItem(CONFIG.STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
-
-    // Réinitialiser la détection wake word si changé
-    if (newSettings.wakeWord !== state.settings.wakeWord || newSettings.wakeWordEnabled !== state.settings.wakeWordEnabled) {
-      initWakeWordDetection();
-    }
-
-    showToast('Paramètres sauvegardés', 'success');
-    closeModal();
-  } catch (e) {
-    console.error('Erreur sauvegarde settings:', e);
-    showToast('Erreur lors de la sauvegarde', 'error');
-  }
-}
-
-// ============================================
-// HISTORIQUE DES CONVERSATIONS
-// ============================================
-async function loadHistory() {
-  try {
-    const stored = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
-    state.history = stored ? JSON.parse(stored) : [];
-  } catch (e) {
-    state.history = [];
-  }
-}
-
-function saveHistory() {
-  try {
-    // Garder seulement les 100 derniers messages
-    const toSave = state.history.slice(-100);
-    localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(toSave));
-  } catch (e) {
-    console.error('Erreur sauvegarde history:', e);
-  }
-}
-
-function addToHistory(role, content, metadata = {}) {
-  const message = {
-    id: Date.now() + Math.random(),
-    role,
-    content,
-    timestamp: new Date().toISOString(),
-    ...metadata
+function saveSettings() {
+  const s = {
+    apiProvider: el.apiProvider.value,
+    ttsEngine: el.ttsEngine.value,
+    ttsVoice: el.ttsVoice.value,
+    ttsRate: parseFloat(el.ttsRate.value),
+    elevenVoice: el.elevenVoice.value,
+    userName: el.userName.value || 'Tom',
+    wakeWord: el.wakeWord.value || 'JARVIS',
+    wakeWordEnabled: el.wakeWordEnabled.checked,
+    continuousListening: el.continuousListening.checked
   };
-  state.history.push(message);
+  if (el.apiKey.value) { localStorage.setItem(CFG.KEYS.API_KEY, el.apiKey.value); s.apiKey = el.apiKey.value; }
+  if (el.elevenKey.value) { localStorage.setItem(CFG.KEYS.ELEVEN_KEY, el.elevenKey.value); s.elevenKey = el.elevenKey.value; }
+  S.settings = { ...S.settings, ...s };
+  localStorage.setItem(CFG.KEYS.SETTINGS, JSON.stringify(S.settings));
+  toggleElevenLabs(s.ttsEngine === 'elevenlabs');
+  toast('Paramètres sauvegardés', 'success');
+}
+
+function toggleElevenLabs(show) {
+  el.elevenLabsFields.classList.toggle('hidden', !show);
+}
+
+// =============================================
+// HISTORY
+// =============================================
+function loadHistory() {
+  try { S.history = JSON.parse(localStorage.getItem(CFG.KEYS.HISTORY)) || []; } catch { S.history = []; }
+}
+function saveHistory() { localStorage.setItem(CFG.KEYS.HISTORY, JSON.stringify(S.history.slice(-100))); }
+function addHistory(role, content) {
+  const msg = { id: Date.now() + Math.random(), role, content, ts: Date.now() };
+  S.history.push(msg);
   saveHistory();
-  return message;
+  return msg;
 }
 
 function renderHistory() {
-  // Garder le message de bienvenue
-  const welcomeMsg = elements.chatMessages.querySelector('.message.welcome');
-  elements.chatMessages.innerHTML = '';
-  if (welcomeMsg) elements.chatMessages.appendChild(welcomeMsg);
-
-  state.history.forEach(msg => {
-    appendMessage(msg.role, msg.content, msg.metadata);
-  });
-  scrollToBottom();
+  el.messages.innerHTML = '';
+  S.history.forEach(m => appendMsg(m.role, m.content));
+  scrollBottom();
 }
 
-function appendMessage(role, content, metadata = {}) {
+// =============================================
+// CHAT UI
+// =============================================
+function appendMsg(role, content) {
   const div = document.createElement('div');
-  div.className = `message ${role}`;
-  div.dataset.id = metadata.id || Date.now();
+  div.className = `msg ${role}`;
 
-  const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const avatarClass = role === 'user' ? 'user-avatar' : 'jarvis-avatar';
+  const avatarSvg = role === 'user'
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
 
-  if (role === 'user') {
-    div.innerHTML = `
-      <div class="message-avatar user">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-      </div>
-      <div class="message-content">${escapeHtml(content)}</div>
-      <div class="message-time">${time}</div>
-    `;
-  } else {
-    div.innerHTML = `
-      <div class="message-avatar jarvis">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-      </div>
-      <div class="message-content">${formatMessage(content)}</div>
-      <div class="message-time">${time}</div>
-    `;
-  }
+  div.innerHTML = `
+    <div class="msg-avatar ${avatarClass}">${avatarSvg}</div>
+    <div class="msg-body"><div class="msg-text">${formatText(content)}</div></div>
+  `;
 
-  elements.chatMessages.appendChild(div);
-  scrollToBottom();
+  el.messages.appendChild(div);
+  scrollBottom();
   return div;
 }
 
-function formatMessage(text) {
-  // Convertir markdown basique
+function formatText(text) {
   return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br>');
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+function scrollBottom() { el.chat.scrollTop = el.chat.scrollHeight; }
+function showTyping(on) { el.typing.classList.toggle('hidden', !on); if(on) scrollBottom(); }
 
-function scrollToBottom() {
-  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
-}
-
-// ============================================
-// RECONNAISSANCE VOCALE
-// ============================================
-function initSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn('SpeechRecognition non supporté');
-    elements.btnMic.disabled = true;
-    elements.inputHint.textContent = 'Reconnaissance vocale non supportée sur ce navigateur';
+// =============================================
+// SPEECH RECOGNITION
+// =============================================
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    el.btnMic.disabled = true;
+    el.inputHint.textContent = 'Reconnaissance vocale non supportée';
     return;
   }
+  S.recognition = new SR();
+  S.recognition.lang = 'fr-FR';
+  S.recognition.continuous = false;
+  S.recognition.interimResults = true;
+  S.recognition.maxAlternatives = 1;
 
-  state.recognition = new SpeechRecognition();
-  state.recognition.lang = 'fr-FR';
-  state.recognition.continuous = false;
-  state.recognition.interimResults = true;
-  state.recognition.maxAlternatives = 1;
-
-  state.recognition.onstart = () => {
-    state.isListening = true;
-    updateListeningUI(true);
-    elements.statusText.textContent = 'J\'écoute...';
-    elements.orb.classList.add('listening');
+  S.recognition.onstart = () => {
+    S.listening = true;
+    setOrbState('listening');
+    setStatus("J'écoute...");
+    el.btnMic.classList.add('listening');
+    el.btnMic.querySelector('.ic-mic').classList.add('hidden');
+    el.btnMic.querySelector('.ic-wave').classList.remove('hidden');
   };
 
-  state.recognition.onresult = (event) => {
-    let finalTranscript = '';
-    let interimTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript;
-      } else {
-        interimTranscript += transcript;
-      }
+  S.recognition.onresult = (ev) => {
+    let final = '', interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) final += t; else interim += t;
     }
+    if (interim) { el.textInput.value = interim; }
+    if (final) { el.textInput.value = ''; handleInput(final.trim()); }
+  };
 
-    if (interimTranscript) {
-      elements.textInput.value = interimTranscript;
-      elements.textInput.style.color = 'var(--text-muted)';
-    }
-
-    if (finalTranscript) {
-      elements.textInput.value = finalTranscript;
-      elements.textInput.style.color = '';
-      handleUserInput(finalTranscript.trim());
+  S.recognition.onerror = (ev) => {
+    if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
+      toast('Erreur microphone: ' + ev.error, 'error');
     }
   };
 
-  state.recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
-    handleRecognitionError(event.error);
-  };
-
-  state.recognition.onend = () => {
-    state.isListening = false;
-    updateListeningUI(false);
-    elements.orb.classList.remove('listening');
-
-    // Redémarrer si écoute continue activée
-    if (state.settings.continuousListening && !state.isSpeaking) {
-      setTimeout(() => startListening(), 500);
-    }
+  S.recognition.onend = () => {
+    S.listening = false;
+    el.btnMic.classList.remove('listening');
+    el.btnMic.querySelector('.ic-mic').classList.remove('hidden');
+    el.btnMic.querySelector('.ic-wave').classList.add('hidden');
+    if (!S.speaking) { setOrbState(''); setStatus('En veille'); }
+    if (S.settings.continuousListening && !S.speaking) setTimeout(() => startListening(), 800);
   };
 }
 
 function startListening() {
-  if (!state.recognition || state.isListening || state.isSpeaking) return;
+  if (!S.recognition || S.listening || S.speaking) return;
+  try { S.recognition.start(); } catch {}
+}
+function stopListening() { if (S.recognition && S.listening) S.recognition.stop(); }
+
+// =============================================
+// TTS — Browser + ElevenLabs
+// =============================================
+async function speak(text) {
+  // Clean text for speech (remove markdown)
+  const clean = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '').replace(/<[^>]+>/g, '');
+  if (!clean.trim()) return;
+
+  S.speaking = true;
+  setOrbState('speaking');
+  setStatus('JARVIS parle...');
 
   try {
-    state.recognition.start();
-  } catch (e) {
-    console.error('Erreur démarrage reconnaissance:', e);
-    showToast('Erreur microphone', 'error');
-  }
-}
-
-function stopListening() {
-  if (state.recognition && state.isListening) {
-    state.recognition.stop();
-  }
-}
-
-function handleRecognitionError(error) {
-  const messages = {
-    'no-speech': 'Aucune parole détectée',
-    'audio-capture': 'Erreur microphone',
-    'not-allowed': 'Permission microphone refusée',
-    'network': 'Erreur réseau'
-  };
-  showToast(messages[error] || `Erreur: ${error}`, 'warning');
-}
-
-function updateListeningUI(listening) {
-  elements.btnMic.classList.toggle('listening', listening);
-  elements.micIcon.classList.toggle('hidden', listening);
-  elements.micListening.classList.toggle('hidden', !listening);
-  elements.inputHint.textContent = listening ? 'Parlez maintenant...' : 'Appuyez sur l\'orbe ou le micro pour parler';
-}
-
-// ============================================
-// DÉTECTION WAKE WORD
-// ============================================
-function initWakeWordDetection() {
-  if (!state.settings.wakeWordEnabled) return;
-
-  // Utiliser l'API Web Speech pour la détection continue en arrière-plan
-  // Note: Pour une vraie détection wake word, il faudrait Porcupine ou similaire
-  // Ici on utilise une approche simplifiée
-  console.log('Wake word detection activé pour:', state.settings.wakeWord);
-}
-
-// ============================================
-// SYNTHÈSE VOCALE (TTS)
-// ============================================
-function speak(text, options = {}) {
-  return new Promise((resolve) => {
-    if (!state.synth) {
-      resolve();
-      return;
+    if (S.settings.ttsEngine === 'elevenlabs' && S.settings.elevenKey) {
+      await speakElevenLabs(clean);
+    } else {
+      await speakBrowser(clean);
     }
+  } catch (e) {
+    console.warn('TTS error:', e);
+    // Fallback to browser if ElevenLabs fails
+    if (S.settings.ttsEngine === 'elevenlabs') {
+      try { await speakBrowser(clean); } catch {}
+    }
+  }
 
-    // Arrêter toute synthèse en cours
-    state.synth.cancel();
+  S.speaking = false;
+  if (!S.listening) { setOrbState(''); setStatus('En veille'); }
+}
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = state.settings.ttsVoice || 'fr-FR';
-    utterance.rate = options.rate || 1;
-    utterance.pitch = options.pitch || 1;
-    utterance.volume = options.volume || 1;
+function speakBrowser(text) {
+  return new Promise((resolve) => {
+    if (!S.synth) { resolve(); return; }
+    S.synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'fr-FR';
+    u.rate = S.settings.ttsRate || 1;
+    u.pitch = 1;
 
-    // Sélectionner la voix
-    const voices = state.synth.getVoices();
-    const preferredVoice = voices.find(v =>
-      v.lang.startsWith('fr') || v.lang.startsWith('fr-FR')
-    );
-    if (preferredVoice) utterance.voice = preferredVoice;
+    // Pick best voice
+    const voices = S.synth.getVoices();
+    const preferred = voices.find(v => v.name.includes('Thomas')) ||
+                      voices.find(v => v.name.includes('Hortense')) ||
+                      voices.find(v => v.name.includes('Amélie')) ||
+                      voices.find(v => v.lang === 'fr-FR') ||
+                      voices.find(v => v.lang.startsWith('fr'));
+    if (preferred) u.voice = preferred;
 
-    state.isSpeaking = true;
-    elements.orb.classList.add('speaking');
-    elements.statusText.textContent = 'JARVIS parle...';
-
-    utterance.onend = () => {
-      state.isSpeaking = false;
-      elements.orb.classList.remove('speaking');
-      updateStatusIdle();
-      resolve();
-    };
-
-    utterance.onerror = (e) => {
-      console.error('TTS error:', e);
-      state.isSpeaking = false;
-      elements.orb.classList.remove('speaking');
-      updateStatusIdle();
-      resolve();
-    };
-
-    state.synth.speak(utterance);
+    u.onend = resolve;
+    u.onerror = resolve;
+    S.synth.speak(u);
   });
 }
 
-function updateStatusIdle() {
-  if (!state.isListening && !state.isSpeaking) {
-    elements.statusText.textContent = 'En veille';
-    elements.orb.classList.remove('listening', 'speaking', 'thinking');
-  }
-}
+async function speakElevenLabs(text) {
+  const key = S.settings.elevenKey;
+  const voiceId = S.settings.elevenVoice || CFG.DEFAULTS.elevenVoice;
+  if (!key) throw new Error('No ElevenLabs key');
 
-// ============================================
-// GESTION DES ENTRÉES UTILISATEUR
-// ============================================
-async function handleUserInput(input) {
-  if (!input.trim()) return;
-
-  // Ajouter à l'historique
-  addToHistory('user', input);
-  appendMessage('user', input);
-
-  // Vider l'input
-  elements.textInput.value = '';
-  elements.btnSend.classList.add('hidden');
-
-  // Afficher indicateur de réflexion
-  showTypingIndicator(true);
-  elements.orb.classList.add('thinking');
-  elements.statusText.textContent = 'Réflexion...';
-
-  try {
-    // Obtenir la réponse de l'IA
-    const response = await getAIResponse(input);
-
-    // Ajouter à l'historique
-    addToHistory('assistant', response);
-    appendMessage('assistant', response);
-
-    // Parler la réponse
-    await speak(response);
-
-  } catch (error) {
-    console.error('Erreur traitement:', error);
-    const errorMsg = 'Désolé, une erreur est survenue. Veuillez réessayer.';
-    appendMessage('assistant', errorMsg);
-    await speak(errorMsg);
-    showToast('Erreur de traitement', 'error');
-  } finally {
-    showTypingIndicator(false);
-    elements.orb.classList.remove('thinking');
-    updateStatusIdle();
-  }
-}
-
-function showTypingIndicator(show) {
-  elements.typingIndicator.classList.toggle('hidden', !show);
-  if (show) scrollToBottom();
-}
-
-// ============================================
-// API IA
-// ============================================
-async function getAIResponse(userInput) {
-  const provider = state.settings.apiProvider || 'gemini';
-  const apiKey = state.settings.apiKey || localStorage.getItem(CONFIG.STORAGE_KEYS.API_KEY);
-
-  if (!apiKey) {
-    throw new Error('Clé API manquante. Configurez-la dans les paramètres.');
-  }
-
-  // Construire le contexte de conversation
-  const systemPrompt = `Tu es JARVIS, un assistant vocal intelligent personnel. 
-Tu réponds de manière concise, naturelle et utile en français.
-L'utilisateur s'appelle ${state.settings.userName || 'Tom'}.
-Tu as accès à des informations en temps réel via des outils si nécessaire.
-Réponds brièvement (2-3 phrases max) sauf demande contraire.`;
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...state.history.slice(-10).map(m => ({ role: m.role, content: m.content })),
-    { role: 'user', content: userInput }
-  ];
-
-  if (provider === 'groq') {
-    return await callGroqAPI(messages, apiKey);
-  } else {
-    return await callGeminiAPI(messages, apiKey);
-  }
-}
-
-async function callGeminiAPI(messages, apiKey) {
-  // Convertir au format Gemini
-  const contents = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
-
-  // Ajouter le system prompt au premier message utilisateur
-  if (contents.length > 0 && contents[0].role === 'user') {
-    contents[0].parts.unshift({ text: messages[0].content + '\n\n' });
-  }
-
-  const response = await fetch(`${CONFIG.API_ENDPOINTS.gemini}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || `Erreur API: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Pas de réponse';
-}
-
-async function callGroqAPI(messages, apiKey) {
-  const response = await fetch(CONFIG.API_ENDPOINTS.groq, {
+  const resp = await fetch(`${CFG.ELEVEN_URL}/${voiceId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'xi-api-key': key
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1024
+      text: text,
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.4 }
     })
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || `Erreur API: ${response.status}`);
-  }
+  if (!resp.ok) throw new Error(`ElevenLabs ${resp.status}`);
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || 'Pas de réponse';
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(url);
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    audio.play().catch(reject);
+  });
 }
 
-// ============================================
-// INTERFACE UTILISATEUR
-// ============================================
-function updateUI() {
-  const s = state.settings;
-  elements.userName.value = s.userName || 'Tom';
-  elements.wakeWord.value = s.wakeWord || 'JARVIS';
-}
-
-function updateOrbState(stateClass) {
-  elements.orb.className = 'orb';
-  if (stateClass) elements.orb.classList.add(stateClass);
-}
-
-// ============================================
-// MODAL PARAMÈTRES
-// ============================================
-function openModal() {
-  elements.settingsModal.classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-  // Focus sur le premier input
-  setTimeout(() => elements.apiKey.focus(), 100);
-}
-
-function closeModal() {
-  elements.settingsModal.classList.add('hidden');
-  document.body.style.overflow = '';
-}
-
-function clearAllData() {
-  if (confirm('Êtes-vous sûr de vouloir effacer toutes les données (historique, paramètres, clés API) ?')) {
-    localStorage.clear();
-    state.history = [];
-    state.settings = { ...CONFIG.DEFAULT_SETTINGS };
-    applySettingsToInputs();
-    renderHistory();
-    showToast('Toutes les données effacées', 'success');
-    closeModal();
-  }
-}
-
-// ============================================
-// TOAST NOTIFICATIONS
-// ============================================
-function showToast(message, type = 'info', duration = 3000) {
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `
-    <span class="toast-message">${escapeHtml(message)}</span>
-    <button class="toast-close" aria-label="Fermer">×</button>
-  `;
-
-  toast.querySelector('.toast-close').addEventListener('click', () => toast.remove());
-
-  elements.toastContainer.appendChild(toast);
-
-  // Animation d'entrée
-  requestAnimationFrame(() => toast.classList.add('show'));
-
-  // Auto-suppression
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
-}
-
-// ============================================
-// EVENT LISTENERS
-// ============================================
-function initEventListeners() {
-  // Orb principal - click pour écouter
-  elements.orb.addEventListener('click', () => {
-    if (state.isListening) {
-      stopListening();
-    } else if (!state.isSpeaking) {
-      startListening();
+// =============================================
+// VOICES
+// =============================================
+function populateVoices() {
+  if (!S.synth) return;
+  const load = () => {
+    const voices = S.synth.getVoices();
+    const fr = voices.filter(v => v.lang.startsWith('fr'));
+    el.ttsVoice.innerHTML = '<option value="auto">Automatique</option>';
+    fr.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.lang + '|' + v.name;
+      o.textContent = `${v.name} (${v.lang})`;
+      el.ttsVoice.appendChild(o);
+    });
+    // Add all voices as fallback
+    if (fr.length < 3) {
+      voices.slice(0, 10).forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.lang + '|' + v.name;
+        o.textContent = `${v.name} (${v.lang})`;
+        el.ttsVoice.appendChild(o);
+      });
     }
+    if (S.settings.ttsVoice) el.ttsVoice.value = S.settings.ttsVoice;
+  };
+  S.synth.onvoiceschanged = load;
+  load();
+}
+
+// =============================================
+// AI API
+// =============================================
+async function getAIResponse(userInput) {
+  const provider = S.settings.apiProvider || 'gemini';
+  const apiKey = S.settings.apiKey || localStorage.getItem(CFG.KEYS.API_KEY);
+  if (!apiKey) throw new Error('Clé API manquante. Ouvrez les paramètres pour la configurer.');
+
+  const systemMsg = `Tu es JARVIS, un assistant vocal IA personnel pour ${S.settings.userName || 'Tom'}. Tu réponds en français, de façon concise et utile (2-3 phrases max sauf si on te demande plus). Tu es intelligent, amical et efficace.`;
+
+  if (provider === 'groq') {
+    const messages = [
+      { role: 'system', content: systemMsg },
+      ...S.history.slice(-8).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      { role: 'user', content: userInput }
+    ];
+    const r = await fetch(CFG.GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.7, max_tokens: 1024 })
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Erreur ${r.status}`); }
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content || 'Pas de réponse.';
+  } else {
+    const contents = [
+      ...S.history.slice(-8).map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      })),
+      { role: 'user', parts: [{ text: systemMsg + '\n\n' + userInput }] }
+    ];
+    const r = await fetch(`${CFG.GEMINI_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } })
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || `Erreur ${r.status}`); }
+    const d = await r.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || 'Pas de réponse.';
+  }
+}
+
+// =============================================
+// INPUT HANDLER
+// =============================================
+async function handleInput(text) {
+  if (!text.trim()) return;
+  addHistory('user', text);
+  appendMsg('user', text);
+  el.textInput.value = '';
+  el.btnSend.classList.add('hidden');
+
+  showTyping(true);
+  setOrbState('thinking');
+  setStatus('Réflexion...');
+
+  try {
+    const response = await getAIResponse(text);
+    addHistory('assistant', response);
+    appendMsg('assistant', response);
+    await speak(response);
+  } catch (err) {
+    console.error(err);
+    const msg = err.message || 'Une erreur est survenue.';
+    appendMsg('assistant', '⚠️ ' + msg);
+    toast(msg, 'error');
+  }
+
+  showTyping(false);
+  setOrbState('');
+  if (!S.speaking) setStatus('En veille');
+}
+
+// =============================================
+// UI HELPERS
+// =============================================
+function setOrbState(state) {
+  el.orb.className = 'orb';
+  if (state) el.orb.classList.add(state);
+}
+function setStatus(text, cls) {
+  el.statusText.textContent = text;
+  el.statusText.className = 'status';
+  if (cls) el.statusText.classList.add(cls);
+}
+function toast(msg, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  el.toasts.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// =============================================
+// EVENTS
+// =============================================
+function bindEvents() {
+  // Orb click
+  el.orb.addEventListener('click', () => {
+    if (S.listening) stopListening();
+    else if (!S.speaking) startListening();
   });
 
-  // Bouton micro
-  elements.btnMic.addEventListener('click', (e) => {
+  // Mic button
+  el.btnMic.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (state.isListening) {
-      stopListening();
-    } else if (!state.isSpeaking) {
-      startListening();
-    }
+    if (S.listening) stopListening();
+    else if (!S.speaking) startListening();
   });
 
-  // Input texte
-  elements.textInput.addEventListener('input', () => {
-    const hasText = elements.textInput.value.trim().length > 0;
-    elements.btnSend.classList.toggle('hidden', !hasText);
+  // Text input
+  el.textInput.addEventListener('input', () => {
+    el.btnSend.classList.toggle('hidden', !el.textInput.value.trim());
   });
-
-  elements.textInput.addEventListener('keydown', (e) => {
+  el.textInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      const text = elements.textInput.value.trim();
-      if (text) handleUserInput(text);
+      if (el.textInput.value.trim()) handleInput(el.textInput.value.trim());
+    }
+  });
+  el.btnSend.addEventListener('click', () => {
+    if (el.textInput.value.trim()) handleInput(el.textInput.value.trim());
+  });
+
+  // Settings
+  el.btnSettings.addEventListener('click', () => el.overlay.classList.remove('hidden'));
+  el.btnClose.addEventListener('click', () => { saveSettings(); el.overlay.classList.add('hidden'); });
+  el.overlay.addEventListener('click', (e) => { if (e.target === el.overlay) { saveSettings(); el.overlay.classList.add('hidden'); } });
+
+  // Settings live changes
+  el.ttsEngine.addEventListener('change', () => toggleElevenLabs(el.ttsEngine.value === 'elevenlabs'));
+  el.ttsRate.addEventListener('input', () => { el.rateVal.textContent = parseFloat(el.ttsRate.value).toFixed(1) + 'x'; });
+
+  // Clear data
+  el.btnClear.addEventListener('click', () => {
+    if (confirm('Effacer toutes les données ?')) {
+      localStorage.clear();
+      S.history = [];
+      S.settings = { ...CFG.DEFAULTS };
+      syncSettingsUI();
+      renderHistory();
+      toast('Données effacées', 'success');
+      el.overlay.classList.add('hidden');
     }
   });
 
-  elements.btnSend.addEventListener('click', () => {
-    const text = elements.textInput.value.trim();
-    if (text) handleUserInput(text);
-  });
-
-  // Paramètres
-  elements.settingsBtn.addEventListener('click', openModal);
-  elements.btnCloseModal.addEventListener('click', closeModal);
-  elements.modalBackdrop.addEventListener('click', closeModal);
-
-  // Sauvegarde paramètres
-  [elements.apiProvider, elements.apiKey, elements.ttsVoice,
-   elements.wakeWordEnabled, elements.continuousListening,
-   elements.userName, elements.wakeWord].forEach(el => {
-    el.addEventListener('change', saveSettings);
-  });
-
-  elements.btnClearData.addEventListener('click', clearAllData);
-
-  // Fermer modal avec Escape
+  // Escape
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !elements.settingsModal.classList.contains('hidden')) {
-      closeModal();
+    if (e.key === 'Escape' && !el.overlay.classList.contains('hidden')) {
+      saveSettings();
+      el.overlay.classList.add('hidden');
     }
   });
 
-  // Chargement des voix TTS
-  if (state.synth) {
-    state.synth.onvoiceschanged = () => {
-      populateVoiceList();
-    };
-    populateVoiceList();
-  }
-}
-
-function populateVoiceList() {
-  if (!state.synth) return;
-  const voices = state.synth.getVoices();
-  const frenchVoices = voices.filter(v => v.lang.startsWith('fr'));
-
-  elements.ttsVoice.innerHTML = '<option value="auto">Auto (navigateur)</option>';
-  frenchVoices.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.lang;
-    opt.textContent = `${v.name} (${v.lang})`;
-    elements.ttsVoice.appendChild(opt);
+  // Visibility
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { stopListening(); if (S.speaking && S.synth) S.synth.cancel(); }
   });
-
-  // Restaurer la sélection
-  if (state.settings.ttsVoice) {
-    elements.ttsVoice.value = state.settings.ttsVoice;
-  }
 }
-
-// ============================================
-// GESTION DU CYCLE DE VIE
-// ============================================
-// Gérer la visibilité de la page
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    stopListening();
-    if (state.isSpeaking) state.synth.cancel();
-  } else if (state.settings.continuousListening && !state.isSpeaking) {
-    setTimeout(() => startListening(), 1000);
-  }
-});
-
-// Gérer les erreurs globales
-window.addEventListener('error', (e) => {
-  console.error('Erreur globale:', e.error);
-  showToast('Une erreur est survenue', 'error');
-});
-
-// Nettoyage à la fermeture
-window.addEventListener('beforeunload', () => {
-  stopListening();
-  if (state.synth) state.synth.cancel();
-});
-
-console.log('JARVIS initialisé avec succès');
